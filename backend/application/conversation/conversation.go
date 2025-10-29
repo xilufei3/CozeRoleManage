@@ -218,6 +218,10 @@ func (c *ConversationApplicationService) ListConversation(ctx context.Context, r
 		}
 	})
 
+	// return an empty conversationData for temporary conversation
+	conversationData = []*conversation.ConversationData{}
+	hasMore = false
+
 	resp.Data = &conversation.ListConversationData{
 		Conversations: conversationData,
 		HasMore:       hasMore,
