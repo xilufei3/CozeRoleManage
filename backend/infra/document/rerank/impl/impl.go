@@ -16,8 +16,11 @@
 package impl
 
 import (
+	"os"
+
 	"github.com/coze-dev/coze-studio/backend/api/model/admin/config"
 	"github.com/coze-dev/coze-studio/backend/infra/document/rerank"
+	"github.com/coze-dev/coze-studio/backend/infra/document/rerank/impl/qwen3"
 	"github.com/coze-dev/coze-studio/backend/infra/document/rerank/impl/rrf"
 	"github.com/coze-dev/coze-studio/backend/infra/document/rerank/impl/vikingdb"
 )
@@ -30,6 +33,8 @@ func New(conf *config.KnowledgeConfig) Reranker {
 		return vikingdb.NewReranker(conf.RerankConfig.VikingdbConfig)
 	case config.RerankType_RRF:
 		return rrf.NewRRFReranker(0)
+	case config.RerankType_Qwen3:
+		return qwen3.NewQwen3Reranker(os.Getenv("QWEN3_RERANKER_ADDR"), os.Getenv("QWEN3_RERANKER_API_KEY"), os.Getenv("QWEN3_RERANKER_MODEL"))
 	default:
 		return rrf.NewRRFReranker(0)
 	}
