@@ -62,6 +62,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/tealeg/xlsx/v3 v3.3.13
 	github.com/tidwall/sjson v1.2.5
+	github.com/tmc/langchaingo v0.1.13
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.7.17
 	github.com/volcengine/volc-sdk-golang v1.0.211
 	github.com/volcengine/volcengine-go-sdk v1.1.20
@@ -185,7 +186,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-sqlite3 v1.14.15 // indirect
+	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/meguminnnnnnnnn/go-openai v0.0.0-20250821095446-07791bea23a0 // indirect
 	github.com/milvus-io/milvus/pkg/v2 v2.0.0-20250319085209-5a6b4e56d59e // indirect
 	github.com/minio/crc64nvme v1.0.1 // indirect
@@ -297,6 +298,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.4.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
+	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/eino-contrib/jsonschema v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -312,8 +314,14 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	gitlab.com/golang-commonmark/html v0.0.0-20191124015941-a22733972181 // indirect
+	gitlab.com/golang-commonmark/linkify v0.0.0-20191026162114-a0c2df6c8f82 // indirect
+	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a // indirect
+	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
+	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	k8s.io/client-go v0.32.3 // indirect

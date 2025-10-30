@@ -26,7 +26,7 @@ import { type FormApi } from '@coze-arch/coze-design';
 
 import { validateCommonDocResegmentStep } from '@/utils/validate-common-doc-next-step';
 import { getSegmentCleanerParams } from '@/utils/text';
-import { SegmentMode } from '@/types';
+import { SegmentMode, SplitMode } from '@/types';
 import { useListDocumentReq } from '@/services';
 import { type DocumentParseFormValue } from '@/features/segment-strategys/document-parse-strategy/precision-parsing/document-parse-form';
 import {
@@ -81,7 +81,10 @@ export const TextSegment: FC<
       return;
     }
     setSegmentMode(segmentParams.segmentMode);
-    setSegmentRule(segmentParams.segmentRule);
+    setSegmentRule({
+      ...segmentParams.segmentRule,
+      splitMode: SplitMode.SIMPLE,
+    });
     setParsingStrategyByMerge(resDocumentInfo.parsing_strategy ?? {});
     parseFormApi.current?.setValues(resDocumentInfo.parsing_strategy ?? {});
     setLevelChunkStrategy('maxLevel', chunkStrategy.max_level ?? 3);
@@ -115,7 +118,11 @@ export const TextSegment: FC<
           parsingStrategy: inputParsingStrategy,
           filterStrategy: inputFilterStrategy,
         }: OnChangeProps) => {
-          rule !== undefined && setSegmentRule(rule);
+          rule !== undefined &&
+            setSegmentRule({
+              ...rule,
+              splitMode: rule.splitMode || SplitMode.SIMPLE,
+            });
           mode !== undefined && setSegmentMode(mode);
           if (!isUndefined(inputParsingStrategy)) {
             setParsingStrategyByMerge(inputParsingStrategy);

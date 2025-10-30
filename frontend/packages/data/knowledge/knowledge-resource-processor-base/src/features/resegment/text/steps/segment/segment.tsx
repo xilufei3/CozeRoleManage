@@ -28,7 +28,7 @@ import { type FormApi } from '@coze-arch/coze-design';
 
 import { validateCommonDocResegmentStep } from '@/utils/validate-common-doc-next-step';
 import { getSegmentCleanerParams } from '@/utils';
-import { SegmentMode } from '@/types';
+import { SegmentMode, SplitMode } from '@/types';
 import { useListDocumentReq } from '@/services';
 import { type PDFFile } from '@/features/segment-strategys/document-parse-strategy/precision-parsing/document-parse-form/pdf-filter/filter-modal';
 import { type DocumentParseFormValue } from '@/features/segment-strategys/document-parse-strategy/precision-parsing/document-parse-form';
@@ -98,7 +98,7 @@ export const TextSegment: FC<
       return;
     }
     const { docInfo, ...restParams } = docSegmentParams;
-    setSegmentRule(restParams.segmentRule);
+    setSegmentRule({ ...restParams.segmentRule, splitMode: SplitMode.SIMPLE });
     setSegmentMode(restParams.segmentMode);
     setParsingStrategyByMerge(docInfo.parsing_strategy ?? {});
     parseFormApi.current?.setValues(docInfo.parsing_strategy ?? {});
@@ -162,7 +162,11 @@ export const TextSegment: FC<
           parsingStrategy: inputParsingStrategy,
           filterStrategy: inputFilterStrategy,
         }: OnChangeProps) => {
-          rule !== undefined && setSegmentRule(rule);
+          rule !== undefined &&
+            setSegmentRule({
+              ...rule,
+              splitMode: rule.splitMode || SplitMode.SIMPLE,
+            });
           mode !== undefined && setSegmentMode(mode);
           if (!isUndefined(inputParsingStrategy)) {
             setParsingStrategyByMerge(inputParsingStrategy as ParsingStrategy);

@@ -25,7 +25,7 @@ import { I18n } from '@coze-arch/i18n';
 import { KnowledgeApi } from '@coze-arch/bot-api';
 
 import { getSegmentCleanerParams, getStorageStrategyEnabled } from '@/utils';
-import { SegmentMode } from '@/types';
+import { SegmentMode, SplitMode } from '@/types';
 import { useListDocumentReq } from '@/services';
 import {
   SegmentConfig,
@@ -69,7 +69,7 @@ export const TextSegment: FC<
   const listDocumentReq = useListDocumentReq(res => {
     const segment = getSegmentCleanerParams(get(res, 'document_infos[0]', {}));
     if (segment) {
-      setSegmentRule(segment.segmentRule);
+      setSegmentRule({ ...segment.segmentRule, splitMode: SplitMode.SIMPLE });
       setSegmentMode(segment.segmentMode);
     }
   });
@@ -98,7 +98,11 @@ export const TextSegment: FC<
         segmentRule={segmentRule}
         segmentMode={segmentMode}
         onChange={({ segmentRule: rule, segmentMode: mode }: OnChangeProps) => {
-          rule !== undefined && setSegmentRule(rule);
+          rule !== undefined &&
+            setSegmentRule({
+              ...rule,
+              splitMode: rule.splitMode || SplitMode.SIMPLE,
+            });
           mode !== undefined && setSegmentMode(mode);
         }}
       />

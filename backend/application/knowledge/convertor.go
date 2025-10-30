@@ -502,7 +502,8 @@ func convertChunkingStrategy2Entity(strategy *dataset.ChunkStrategy) *entity.Chu
 			ChunkType: convertChunkType2Entity(dataset.ChunkType_DefaultChunk),
 		}
 	}
-	return &entity.ChunkingStrategy{
+	
+	result := &entity.ChunkingStrategy{
 		ChunkType:       convertChunkType2Entity(strategy.ChunkType),
 		ChunkSize:       strategy.GetMaxTokens(),
 		Separator:       strategy.GetSeparator(),
@@ -512,6 +513,22 @@ func convertChunkingStrategy2Entity(strategy *dataset.ChunkStrategy) *entity.Chu
 		MaxDepth:        strategy.GetMaxLevel(),
 		SaveTitle:       strategy.GetSaveTitle(),
 	}
+	
+	// 添加新字段的转换
+	if strategy.SplitMode != nil {
+		result.SplitMode = *strategy.SplitMode
+	}
+	if strategy.RegexPattern != nil {
+		result.RegexPattern = *strategy.RegexPattern
+	}
+	if strategy.LangchainType != nil {
+		result.LangchainType = *strategy.LangchainType
+	}
+	if strategy.LmchunkerMethod != nil {
+		result.LMChunkerMethod = strategy.LmchunkerMethod
+	}
+	
+	return result
 }
 
 func GetExtension(uri string) string {
@@ -579,7 +596,7 @@ func convertChunkingStrategy2Model(chunkingStrategy *entity.ChunkingStrategy) *d
 	if chunkingStrategy == nil {
 		return nil
 	}
-	return &dataset.ChunkStrategy{
+	result := &dataset.ChunkStrategy{
 		Separator:         chunkingStrategy.Separator,
 		MaxTokens:         chunkingStrategy.ChunkSize,
 		RemoveExtraSpaces: chunkingStrategy.TrimSpace,
@@ -589,6 +606,21 @@ func convertChunkingStrategy2Model(chunkingStrategy *entity.ChunkingStrategy) *d
 		MaxLevel:          &chunkingStrategy.MaxDepth,
 		SaveTitle:         &chunkingStrategy.SaveTitle,
 	}
+	
+	if chunkingStrategy.SplitMode != "" {
+		result.SplitMode = &chunkingStrategy.SplitMode
+	}
+	if chunkingStrategy.RegexPattern != "" {
+		result.RegexPattern = &chunkingStrategy.RegexPattern
+	}
+	if chunkingStrategy.LangchainType != "" {
+		result.LangchainType = &chunkingStrategy.LangchainType
+	}
+	if chunkingStrategy.LMChunkerMethod != nil {
+		result.LmchunkerMethod = chunkingStrategy.LMChunkerMethod
+	}
+	
+	return result
 }
 
 func convertDocumentTypeEntity2Dataset(formatType model.DocumentType) dataset.FormatType {

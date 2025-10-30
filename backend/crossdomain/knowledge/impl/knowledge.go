@@ -96,6 +96,10 @@ func (i *impl) Store(ctx context.Context, document *model.CreateDocumentRequest)
 	cs.Separator = document.ChunkingStrategy.Separator
 	cs.ChunkSize = document.ChunkingStrategy.ChunkSize
 	cs.Overlap = document.ChunkingStrategy.Overlap
+	cs.SplitMode = document.ChunkingStrategy.SplitMode
+	cs.RegexPattern = document.ChunkingStrategy.RegexPattern
+	cs.LangchainType = document.ChunkingStrategy.LangchainType
+	cs.LMChunkerMethod = document.ChunkingStrategy.LMChunkerMethod
 
 	req := &entity.Document{
 		Info: model.Info{

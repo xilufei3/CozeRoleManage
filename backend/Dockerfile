@@ -6,6 +6,9 @@ WORKDIR /app
 # Install build dependencies for Go
 RUN apk add --no-cache git gcc libc-dev
 
+# Use a faster Go module proxy to avoid network timeouts
+ENV GOPROXY=https://goproxy.cn,direct
+
 # Copy go.mod and go.sum first to leverage Docker cache
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download

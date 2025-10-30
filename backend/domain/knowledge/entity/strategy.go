@@ -54,6 +54,10 @@ type ChunkingStrategy struct {
 	// custom chunk config
 	ChunkSize       int64  `json:"chunk_size"` // maximum segmentation length
 	Separator       string `json:"separator"`  // segmentation identifier
+	SplitMode       string `json:"split_mode"` // split mode: simple, regex, langchain, lmchunker
+	RegexPattern    string `json:"regex_pattern"` // regex pattern for regex mode
+	LangchainType   string `json:"langchain_type"` // langchain splitter type
+	LMChunkerMethod *int32 `json:"lmchunker_method"` // LMChunker method type: 0=PPL, 1=MS, 2=LUMBER_MS
 	Overlap         int64  `json:"overlap"`    // segmented overlap
 	TrimSpace       bool   `json:"trim_space"`
 	TrimURLAndEmail bool   `json:"trim_url_and_email"`
