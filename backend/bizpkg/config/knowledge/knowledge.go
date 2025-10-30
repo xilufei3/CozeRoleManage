@@ -165,6 +165,8 @@ func getRerankType() config.RerankType {
 		return config.RerankType_RRF
 	case "vikingdb":
 		return config.RerankType_VikingDB
+	case "qwen3":
+		return config.RerankType_Qwen3
 	}
 
 	return config.RerankType_RRF
