@@ -39,6 +39,15 @@ export enum CaptionType {
   Manual = 1,
 }
 
+export enum LMChunkerMethod {
+  /** Perplexity-based method */
+  PPL = 0,
+  /** Mean Shift method */
+  MS = 1,
+  /** Lumber Mean Shift method */
+  LUMBER_MS = 2,
+}
+
 export enum ChunkType {
   DefaultChunk = 0,
   CustomChunk = 1,
@@ -263,6 +272,14 @@ export interface ChunkStrategy {
   max_level?: Int64;
   /** 切片保留层级标题（按层级分段时生效） */
   save_title?: boolean;
+  /** 分割模式: simple, regex, langchain, lmchunker */
+  split_mode?: string;
+  /** 正则表达式模式 */
+  regex_pattern?: string;
+  /** Langchain分割器类型 */
+  langchain_type?: string;
+  /** LMChunker方法类型 */
+  lmchunker_method?: LMChunkerMethod;
 }
 
 export interface FilterStrategy {

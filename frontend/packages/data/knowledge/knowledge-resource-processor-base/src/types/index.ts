@@ -27,7 +27,14 @@ export type {
   APIFetchTableInfoReq,
   AddCustomTableMeta,
 } from './table';
-export { SegmentMode, SeperatorType, PreProcessRule } from './text';
+export {
+  SegmentMode,
+  SeperatorType,
+  PreProcessRule,
+  SplitMode,
+  LangchainSplitterType,
+  LMChunkerMethod,
+} from './text';
 export type { Seperator, CustomSegmentRule } from './text';
 export type { ViewOnlinePageDetailProps } from './components';
 

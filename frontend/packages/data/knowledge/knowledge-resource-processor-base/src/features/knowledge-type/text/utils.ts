@@ -28,6 +28,8 @@ import {
   SeperatorType,
   PreProcessRule,
   type CustomSegmentRule,
+  SplitMode,
+  LMChunkerMethod,
 } from '@/types';
 
 import { type LevelChunkStrategy } from './interface';
@@ -37,11 +39,6 @@ export const getCustomValues = (
   segmentRule: CustomSegmentRule,
   levelChunkStrategy?: LevelChunkStrategy,
 ): ChunkStrategy => {
-  if (segmentMode === SegmentMode.AUTO) {
-    return {
-      chunk_type: ChunkType.DefaultChunk,
-    };
-  }
   if (segmentMode === SegmentMode.LEVEL) {
     return {
       chunk_type: ChunkType.LevelChunk,
@@ -53,7 +50,8 @@ export const getCustomValues = (
     segmentRule.separator.type === SeperatorType.CUSTOM
       ? segmentRule.separator.customValue
       : segmentRule.separator.type;
-  return {
+
+  const chunkStrategy: ChunkStrategy = {
     separator,
     max_tokens: segmentRule.maxTokens,
     remove_extra_spaces: segmentRule?.preProcessRules?.includes(
@@ -65,6 +63,26 @@ export const getCustomValues = (
     chunk_type: ChunkType.CustomChunk,
     overlap: segmentRule.overlap,
   };
+
+  chunkStrategy.split_mode = segmentRule.splitMode;
+  chunkStrategy.regex_pattern = segmentRule.regexPattern || '';
+  chunkStrategy.langchain_type = segmentRule.langchainSplitter;
+
+  // 添加LMChunker方法支持
+  if (
+    segmentRule.splitMode === SplitMode.LMCHUNKER &&
+    segmentRule.lmchunkerMethod
+  ) {
+    // 将前端枚举值转换为IDL枚举值
+    const methodMap = {
+      [LMChunkerMethod.PPL]: 0, // PPL = 0
+      [LMChunkerMethod.MS]: 1, // MS = 1
+      [LMChunkerMethod.LUMBER_MS]: 2, // LUMBER_MS = 2
+    };
+    chunkStrategy.lmchunker_method = methodMap[segmentRule.lmchunkerMethod];
+  }
+
+  return chunkStrategy;
 };
 
 export function filterTextList(

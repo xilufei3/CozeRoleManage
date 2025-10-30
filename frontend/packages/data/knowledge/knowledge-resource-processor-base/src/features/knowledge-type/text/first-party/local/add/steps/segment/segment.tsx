@@ -27,7 +27,7 @@ import { KnowledgeApi } from '@coze-arch/bot-api';
 
 import { validateCommonDocResegmentStep } from '@/utils/validate-common-doc-next-step';
 import { getSegmentCleanerParams, getStorageStrategyEnabled } from '@/utils';
-import { SegmentMode } from '@/types';
+import { SegmentMode, SplitMode } from '@/types';
 import { useListDocumentReq } from '@/services';
 import {
   SegmentConfig,
@@ -90,7 +90,7 @@ export const TextSegment: FC<
   const listDocumentReq = useListDocumentReq(res => {
     const segment = getSegmentCleanerParams(get(res, 'document_infos[0]', {}));
     if (segment) {
-      setSegmentRule(segment.segmentRule);
+      setSegmentRule({ ...segment.segmentRule, splitMode: SplitMode.SIMPLE });
       setSegmentMode(segment.segmentMode);
     }
   });
@@ -136,7 +136,11 @@ export const TextSegment: FC<
           // indexStrategy: inputIndexStrategy,
           filterStrategy: inputFilterStrategy,
         }: OnChangeProps) => {
-          rule !== undefined && setSegmentRule(rule);
+          rule !== undefined &&
+            setSegmentRule({
+              ...rule,
+              splitMode: rule.splitMode || SplitMode.SIMPLE,
+            });
           mode !== undefined && setSegmentMode(mode);
           if (!isUndefined(inputParsingStrategy)) {
             setParsingStrategyByMerge(inputParsingStrategy as ParsingStrategy);

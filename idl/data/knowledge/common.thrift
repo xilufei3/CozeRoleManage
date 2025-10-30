@@ -18,6 +18,9 @@ struct ChunkStrategy {
     8: optional i64    overlap;      //segmented overlap
     9: optional i64    max_level;    //Maximum number of levels (effective when segmented by level)
     10: optional bool   save_title;   //Slice preserves level headers (effective when segmented by level)
+    11: optional string split_mode;   // Split mode: simple, regex, langchain, lmchunker
+    12: optional string regex_pattern; // Regex pattern for regex mode
+    13: optional LMChunkerMethod lmchunker_method; // LMChunker method type
 }
 
 enum ChunkType{
@@ -34,6 +37,12 @@ enum ContentSchema{
 enum CaptionType {
     Auto = 0 // intelligent annotation
     Manual = 1 // manual annotation
+}
+
+enum LMChunkerMethod {
+    PPL = 0        // Perplexity-based method
+    MS = 1         // Mean Shift method  
+    LUMBER_MS = 2  // Lumber Mean Shift method
 }
 
 enum DocumentStatus {

@@ -16,7 +16,13 @@
 
 import { I18n } from '@coze-arch/i18n';
 
-import { type CustomSegmentRule, SeperatorType } from '../types';
+import {
+  type CustomSegmentRule,
+  SeperatorType,
+  SplitMode,
+  LangchainSplitterType,
+  LMChunkerMethod,
+} from '../types';
 
 const getSeperatorSelect = () => ({
   [SeperatorType.LINE_BREAK]: I18n.t('datasets_Custom_segmentID_linebreak'),
@@ -45,10 +51,14 @@ const defaultMaxTokens = 800;
 const defaultOverlap = 10;
 
 export const defaultCustomSegmentRule: CustomSegmentRule = {
+  splitMode: SplitMode.SIMPLE,
   separator: {
     type: SeperatorType.LINE_BREAK,
     customValue: '###',
   },
+  regexPattern: '',
+  langchainSplitter: LangchainSplitterType.RECURSIVE,
+  lmchunkerMethod: LMChunkerMethod.PPL,
   maxTokens: defaultMaxTokens,
   preProcessRules: [],
   overlap: defaultOverlap,

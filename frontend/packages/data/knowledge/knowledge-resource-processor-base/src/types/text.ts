@@ -20,6 +20,24 @@ export enum SegmentMode {
   LEVEL,
 }
 
+export enum SplitMode {
+  SIMPLE = 'simple',
+  REGEX = 'regex',
+  LANGCHAIN = 'langchain',
+  LMCHUNKER = 'lmchunker',
+}
+
+export enum LangchainSplitterType {
+  RECURSIVE = 'recursive',
+  MARKDOWN = 'markdown',
+}
+
+export enum LMChunkerMethod {
+  PPL = 'ppl',
+  MS = 'ms',
+  LUMBER_MS = 'lumber_ms',
+}
+
 export enum PreProcessRule {
   REMOVE_SPACES = 'remove_extra_spaces',
   REMOVE_EMAILS = 'remove_urls_emails',
@@ -43,7 +61,11 @@ export interface Seperator {
 }
 
 export interface CustomSegmentRule {
+  splitMode: SplitMode;
   separator: Seperator;
+  regexPattern?: string;
+  langchainSplitter?: LangchainSplitterType;
+  lmchunkerMethod?: LMChunkerMethod;
   maxTokens: number;
   preProcessRules: PreProcessRule[];
   /** segmented overlap */

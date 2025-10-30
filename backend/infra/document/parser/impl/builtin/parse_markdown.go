@@ -41,19 +41,29 @@ import (
 func ParseMarkdown(config *contract.Config, storage storage.Storage, ocr ocr.OCR) ParseFn {
 	return func(ctx context.Context, reader io.Reader, opts ...parser.Option) (docs []*schema.Document, err error) {
 		options := parser.GetCommonOptions(&parser.Options{}, opts...)
-		mdParser := goldmark.DefaultParser()
 		b, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, err
 		}
 
-		node := mdParser.Parse(text.NewReader(b))
 		cs := config.ChunkingStrategy
 		ps := config.ParsingStrategy
 
 		if cs.ChunkType != contract.ChunkTypeCustom && cs.ChunkType != contract.ChunkTypeDefault {
 			return nil, fmt.Errorf("[ParseMarkdown] chunk type not support, chunk type=%d", cs.ChunkType)
 		}
+
+		if cs.ChunkType == contract.ChunkTypeCustom {
+			logs.CtxInfof(ctx, "[ParseMarkdown INFO] Using ChunkTypeCustom, calling ChunkCustom function")
+
+			fullContent := string(b)
+			return ChunkCustom(ctx, fullContent, config, opts...)
+		}
+
+		logs.CtxInfof(ctx, "[ParseMarkdown INFO] Using ChunkTypeDefault, using AST parsing")
+
+		mdParser := goldmark.DefaultParser()
+		node := mdParser.Parse(text.NewReader(b))
 
 		var (
 			last       *schema.Document

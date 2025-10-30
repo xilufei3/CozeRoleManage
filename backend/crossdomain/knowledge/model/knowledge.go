@@ -303,10 +303,14 @@ type ParsingStrategy struct {
 	ImageOCR     bool
 }
 type ChunkingStrategy struct {
-	ChunkType ChunkType
-	ChunkSize int64
-	Separator string
-	Overlap   int64
+	ChunkType       ChunkType
+	ChunkSize       int64
+	Separator       string
+	Overlap         int64
+	SplitMode       string
+	RegexPattern    string
+	LangchainType   string
+	LMChunkerMethod *int32
 }
 
 type CreateDocumentRequest struct {
