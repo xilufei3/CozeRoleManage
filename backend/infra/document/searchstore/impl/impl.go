@@ -24,11 +24,13 @@ import (
 	"github.com/cloudwego/eino-ext/components/embedding/gemini"
 	"github.com/cloudwego/eino-ext/components/embedding/ollama"
 	"github.com/cloudwego/eino-ext/components/embedding/openai"
+	alayaliteClient "github.com/coze-dev/coze-studio/backend/infra/alayalite"
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 	"google.golang.org/genai"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/admin/config"
 	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore"
+	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore/impl/alayalite"
 	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore/impl/elasticsearch"
 	"github.com/coze-dev/coze-studio/backend/infra/document/searchstore/impl/milvus"
 	searchstoreOceanbase "github.com/coze-dev/coze-studio/backend/infra/document/searchstore/impl/oceanbase"
@@ -206,6 +208,31 @@ func getVectorStore(ctx context.Context, conf *config.KnowledgeConfig) (searchst
 		mgr, err := searchstoreOceanbase.NewManager(managerConfig)
 		if err != nil {
 			return nil, fmt.Errorf("init oceanbase vector store failed, err=%w", err)
+		}
+		return mgr, nil
+
+	case "alayalite":
+		emb, err := getEmbedding(ctx, conf.EmbeddingConfig)
+		if err != nil {
+			return nil, fmt.Errorf("init alayalite embedding failed, err=%w", err)
+		}
+		var (
+			baseurl = os.Getenv("ALAYALITE_BASEURL")
+		)
+		if baseurl == "" {
+			return nil, fmt.Errorf("invalid alayalite configuration: baseurl are required")
+		}
+		client, err := alayaliteClient.NewAlayaLiteClient(baseurl)
+		if err != nil {
+			return nil, fmt.Errorf("init alayalite client failed, err=%w", err)
+		}
+		managerConfig := &alayalite.ManagerConfig{
+			Client:    client,
+			Embedding: emb,
+		}
+		mgr, err := alayalite.NewManager(managerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("init alayalite vector store failed, err=%w", err)
 		}
 		return mgr, nil
 
