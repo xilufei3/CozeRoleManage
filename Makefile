@@ -11,6 +11,7 @@ SETUP_PYTHON_SCRIPT := $(SCRIPTS_DIR)/setup/python.sh
 COMPOSE_FILE := docker/docker-compose-debug.yml
 OCEANBASE_COMPOSE_FILE := docker/docker-compose-oceanbase.yml
 OCEANBASE_DEBUG_COMPOSE_FILE := docker/docker-compose-oceanbase_debug.yml
+ALAYALITE_DEBUG_COMPOSE_FILE := docker/docker-compose-alayalite_debug.yml
 MYSQL_SCHEMA := ./docker/volumes/mysql/schema.sql
 MYSQL_INIT_SQL := ./docker/volumes/mysql/sql_init.sql
 ENV_FILE := ./docker/.env.debug
@@ -128,6 +129,15 @@ oceanbase_server_debug:
 	@echo "Building and run OceanBase debug server..."
 	@APP_ENV=debug bash $(BUILD_SERVER_SCRIPT) -start
 
+alayalite_debug: env alayalite_middleware_debug python server
+
+alayalite_middleware_debug:
+	@echo "Starting AlayaLite debug middleware..."
+	@docker compose -f $(ALAYALITE_DEBUG_COMPOSE_FILE) --env-file $(ENV_FILE) --profile middleware up -d --wait
+
+alayalite_down: env
+	@echo "Stop all docker containers"
+	@docker compose -f $(ALAYALITE_DEBUG_COMPOSE_FILE) --profile '*' down
 help:
 	@echo "Usage: make [target]"
 	@echo ""
