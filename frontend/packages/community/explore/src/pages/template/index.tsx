@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { useEffect } from 'react';
+
 import { explore } from '@coze-studio/api-schema';
 import {
   TemplateCard,
@@ -23,18 +25,27 @@ import {
 import { I18n } from '@coze-arch/i18n';
 
 import { PageList } from '../../components/page-list';
+const TitleEffect = () => {
+  useEffect(() => {
+    document.title = I18n.t('platform_name');
+  }, []);
+  return null;
+};
 
 export const TemplatePage = () => (
-  <PageList
-    title={
-      <h2 className="leading-[72px] text-[20px] m-[0] pl-[24px] pr-[24px]">
-        {I18n.t('template_name')}
-      </h2>
-    }
-    getDataList={() => getTemplateData()}
-    renderCard={data => <TemplateCard {...(data as TemplateCardProps)} />}
-    renderCardSkeleton={() => <TemplateCardSkeleton />}
-  />
+  <>
+    <PageList
+      title={
+        <h2 className="leading-[72px] text-[20px] m-[0] pl-[24px] pr-[24px]">
+          {I18n.t('template_name')}
+        </h2>
+      }
+      getDataList={() => getTemplateData()}
+      renderCard={data => <TemplateCard {...(data as TemplateCardProps)} />}
+      renderCardSkeleton={() => <TemplateCardSkeleton />}
+    />
+    <TitleEffect />
+  </>
 );
 
 const getTemplateData = async () => {

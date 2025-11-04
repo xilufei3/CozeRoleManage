@@ -15,6 +15,7 @@
  */
 
 import { Outlet, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 
 import { I18n } from '@coze-arch/i18n';
 import { IconCozIllusAdd } from '@coze-arch/coze-design/illustrations';
@@ -25,6 +26,10 @@ import { useInitSpace } from '../../hooks/use-init-space';
 export const SpaceLayout = () => {
   const { space_id } = useParams();
   const { loading, spaceListLoading, spaceList } = useInitSpace(space_id);
+
+  useEffect(() => {
+    document.title = I18n.t('platform_name');
+  }, []);
 
   if (!loading && !spaceListLoading && spaceList.length === 0) {
     return (

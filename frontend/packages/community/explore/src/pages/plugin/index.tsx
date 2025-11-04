@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { useEffect } from 'react';
+
 import { useRequest } from 'ahooks';
 import { explore } from '@coze-studio/api-schema';
 import {
@@ -42,6 +44,10 @@ const entityTypeMap = {
 };
 
 export const PluginPage = () => {
+  useEffect(() => {
+    document.title = I18n.t('platform_name');
+  }, []);
+
   const { node: usageInvokeModal, open: openUsageInvokeModal } = useUsageModal(
     {},
   );
