@@ -17,7 +17,9 @@
 import { memo, useEffect, useRef, useState, type FC } from 'react';
 
 import { type Message, type ContentType } from '@coze-common/chat-core';
-import { MdBoxLazy } from '@coze-arch/bot-md-box-adapter/lazy';
+
+import { ReasoningBubble } from '../reasoning-bubble';
+import './style.css';
 
 type IProps = Record<'message', Message<ContentType>>;
 
@@ -43,11 +45,11 @@ export const BizMessageInnerAddonBottom: FC<IProps> = memo(
     }, [p.message.reasoning_content, p.message.content]);
 
     return p.message.role === 'assistant' && p.message.reasoning_content ? (
-      <div className="my-[8px]">
-        <MdBoxLazy
-          markDown={`${p.message.reasoning_content.replace(/^/gm, '> ')}`}
+      <div className="reasoning-bubble-wrapper">
+        <ReasoningBubble
+          text={p.message.reasoning_content}
           showIndicator={!p.message.is_finish && !reasoningFinished}
-        ></MdBoxLazy>
+        />
       </div>
     ) : null;
   },
