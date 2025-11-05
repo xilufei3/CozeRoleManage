@@ -101,7 +101,7 @@ struct PluginDetal {
     5: optional i64    plugin_type (agw.js_conv="str" api.js_conv="true")
     6: optional i64    plugin_status (agw.js_conv="str" api.js_conv="true")
     7: optional bool   is_official
-    9: optional bot_common.PluginFrom plugin_from // 
+    9: optional bot_common.PluginFrom plugin_from //
 }
 
 struct PluginAPIDetal {
@@ -448,6 +448,15 @@ struct GetFileUrlsResponse {
     255: base.BaseResp BaseResp
 }
 
+struct CreateSpaceUserRequest {
+    1: required string password
+    2: required string email
+    3: required i32 spaceRole
+}
+
+struct CreateSpaceUserResponse {
+    1: required i32 code
+}
 
 
 service PlaygroundService {
@@ -471,7 +480,11 @@ service PlaygroundService {
     prompt_resource.UpsertPromptResourceResponse UpsertPromptResource(1:prompt_resource.UpsertPromptResourceRequest request)(api.post='/api/playground_api/upsert_prompt_resource', api.category="prompt_resource",agw.preserve_base="true")
     prompt_resource.DeletePromptResourceResponse DeletePromptResource(1:prompt_resource.DeletePromptResourceRequest request)(api.post='/api/playground_api/delete_prompt_resource', api.category="prompt_resource",agw.preserve_base="true")
 
-    GetSpaceListV2Response GetSpaceListV2(1:GetSpaceListV2Request request)(api.post='/api/playground_api/space/list', api.category="space",agw.preserve_base="true")
+    GetSpaceListV2Response GetSpaceListV2(1:GetSpaceListV2Request request)
+        (api.post='/api/playground_api/space/list', api.category="space",agw.preserve_base="true")
+    CreateSpaceUserResponse CreateSpaceUser(1: CreateSpaceUserRequest request)
+        (api.post = '/api/playground_api/space/user_create', api.category = "space", agw.preserve_base = "true")
+
     MGetUserBasicInfoResponse MGetUserBasicInfo(1: MGetUserBasicInfoRequest request) (api.post='/api/playground_api/mget_user_info', api.category="playground_api",agw.preserve_base="true")
 
 }

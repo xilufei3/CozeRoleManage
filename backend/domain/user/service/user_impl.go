@@ -32,6 +32,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
+	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	uploadEntity "github.com/coze-dev/coze-studio/backend/domain/upload/entity"
 	userEntity "github.com/coze-dev/coze-studio/backend/domain/user/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/user/internal/dal/model"
@@ -464,6 +465,117 @@ func (u *userImpl) GetUserSpaceList(ctx context.Context, userID int64) (spaces [
 		return spacePo2Do(sm, urls[sm.IconURI])
 	}), nil
 }
+
+func (u *userImpl) GetUserSpaceIDs(ctx context.Context, userID int64) (spaceIDs []int64, err error) {
+	userSpaces, err := u.SpaceRepo.GetSpaceList(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Transform(userSpaces, func(us *model.SpaceUser) int64 {
+		return us.SpaceID
+	}), nil
+}
+
+func (u *userImpl) CreateUser(ctx context.Context, req *CreateUserRequest, SpaceRole int32) (user *userEntity.User, err error) {
+	exist, err := u.UserRepo.CheckEmailExist(ctx, req.Email)
+	if err != nil {
+		return nil, err
+	}
+	if exist {
+		return nil, errorx.New(errno.ErrUserEmailAlreadyExistCode, errorx.KV("email", req.Email))
+	}
+	if req.UniqueName != "" {
+		exist, err = u.UserRepo.CheckUniqueNameExist(ctx, req.UniqueName)
+		if err != nil {
+			return nil, err
+		}
+		if exist {
+			return nil, errorx.New(errno.ErrUserUniqueNameAlreadyExistCode, errorx.KV("name", req.UniqueName))
+		}
+	}
+	hashedPassword, err := hashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	name := req.Name
+	if name == "" {
+		name = strings.Split(req.Email, "@")[0]
+	}
+
+	userID, err := u.IDGen.GenID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("generate id error: %w", err)
+	}
+
+	now := time.Now().UnixMilli()
+	spaceID := req.SpaceID
+
+	newUser := &model.User{
+		ID:           userID,
+		IconURI:      uploadEntity.UserIconURI,
+		Name:         name,
+		UniqueName:   u.getUniqueNameFormEmail(ctx, req.Email),
+		Email:        req.Email,
+		Password:     hashedPassword,
+		Description:  req.Description,
+		UserVerified: false,
+		Locale:       req.Locale,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	err = u.UserRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		return nil, fmt.Errorf("insert user failed: %w", err)
+	}
+	err = u.SpaceRepo.AddSpaceUser(ctx, &model.SpaceUser{
+		SpaceID:   spaceID,
+		UserID:    userID,
+		RoleType:  SpaceRole,
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("add space user failed: %w", err)
+	}
+
+	iconURL, err := u.IconOSS.GetObjectUrl(ctx, newUser.IconURI)
+	if err != nil {
+		return nil, fmt.Errorf("get icon url failed: %w", err)
+	}
+	return userPo2Do(newUser, iconURL), nil
+}
+
+func (u *userImpl) GetSpaceUserList(ctx context.Context, spaceID int64) (userInfos []*playground.SpaceUserInfo, err error) {
+	spaceUsers, err := u.SpaceRepo.GetUserList(ctx, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	userIDs := slices.Transform(spaceUsers, func(us *model.SpaceUser) int64 {
+		return us.UserID
+	})
+	userModels, err := u.UserRepo.GetUsersByIDs(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	userMap := make(map[int64]*model.User, len(userModels))
+    for _, u := range userModels {
+        userMap[u.ID] = u
+  }
+	userInfos = make([]*playground.SpaceUserInfo, 0, len(spaceUsers))
+	for _, us := range spaceUsers {
+		userInfos = append(userInfos, &playground.SpaceUserInfo{
+			UserID:   us.UserID,
+			RoleType: us.RoleType,
+			Name:     userMap[us.UserID].Name,
+			Email:    userMap[us.UserID].Email,
+		})
+	}
+	return userInfos, nil
+}
+
 
 func spacePo2Do(space *model.Space, iconUrl string) *userEntity.Space {
 	return &userEntity.Space{

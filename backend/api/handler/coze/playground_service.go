@@ -31,6 +31,7 @@ import (
 	"github.com/coze-dev/coze-studio/backend/application/singleagent"
 	"github.com/coze-dev/coze-studio/backend/application/upload"
 	"github.com/coze-dev/coze-studio/backend/application/user"
+	"github.com/coze-dev/coze-studio/backend/pkg/i18n"
 )
 
 // UpdateDraftBotInfoAgw .
@@ -201,6 +202,50 @@ func GetSpaceListV2(ctx context.Context, c *app.RequestContext) {
 
 	c.JSON(consts.StatusOK, resp)
 }
+
+// CreateSpaceUser .
+// @router /api/playground_api/space/user_create [POST]
+func CreateSpaceUser(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req playground.CreateSpaceUserRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	locale := string(i18n.GetLocale(ctx))
+
+	resp, err := user.UserApplicationSVC.CreateSpaceUser(ctx, locale, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+
+// GetSpaceUserList .
+// @router /api/playground_api/space/user_list [GET]
+func GetSpaceUserList(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req playground.GetSpaceUserListRequest
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	resp, err := user.UserApplicationSVC.GetSpaceUserList(ctx, &req)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, resp)
+}
+
 
 // GetImagexShortUrl .
 // @router /api/playground_api/get_imagex_url [POST]

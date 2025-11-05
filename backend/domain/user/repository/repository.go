@@ -53,4 +53,5 @@ type SpaceRepository interface {
 	GetSpaceByIDs(ctx context.Context, spaceIDs []int64) ([]*model.Space, error)
 	AddSpaceUser(ctx context.Context, spaceUser *model.SpaceUser) error
 	GetSpaceList(ctx context.Context, userID int64) ([]*model.SpaceUser, error)
+	GetUserList(ctx context.Context, spaceID int64) ([]*model.SpaceUser, error)
 }

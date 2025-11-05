@@ -31,3 +31,9 @@ func (dao *SpaceDAO) GetSpaceList(ctx context.Context, userID int64) ([]*model.S
 		dao.query.SpaceUser.UserID.Eq(userID),
 	).Find()
 }
+
+func (dao *SpaceDAO) GetUserList(ctx context.Context, spaceID int64) ([]*model.SpaceUser, error) {
+	return dao.query.SpaceUser.WithContext(ctx).Where(
+		dao.query.SpaceUser.SpaceID.Eq(spaceID),
+	).Find()
+}

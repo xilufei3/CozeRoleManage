@@ -253,6 +253,53 @@ func (u *UserApplicationService) GetSpaceListV2(ctx context.Context, req *playgr
 	}, nil
 }
 
+
+func (u *UserApplicationService) CreateSpaceUser(ctx context.Context, locale string, req *playground.CreateSpaceUserRequest) (
+	resp *playground.CreateSpaceUserResponse, err error,
+) {
+	uid := ctxutil.MustGetUIDFromCtx(ctx)
+	spaceIDs, err := u.DomainSVC.GetUserSpaceIDs(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = u.DomainSVC.CreateUser(ctx, &user.CreateUserRequest{
+		Email:    req.GetEmail(),
+		Password: req.GetPassword(),
+		SpaceID: spaceIDs[0],
+		Locale: locale,
+	}, req.GetSpaceRole())
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &playground.CreateSpaceUserResponse{
+		Code: 0,
+	}, nil
+}
+
+// GetSpaceUserList Get space user list
+func (u *UserApplicationService) GetSpaceUserList(ctx context.Context, req *playground.GetSpaceUserListRequest) (
+	resp *playground.GetSpaceUserListResponse, err error,
+) {
+	uid := ctxutil.MustGetUIDFromCtx(ctx)
+	spaceIDs, err := u.DomainSVC.GetUserSpaceIDs(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	userInfos, err := u.DomainSVC.GetSpaceUserList(ctx, spaceIDs[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return &playground.GetSpaceUserListResponse{
+		SpaceUserList: userInfos,
+	}, nil
+}
+
+
+
 func (u *UserApplicationService) MGetUserBasicInfo(ctx context.Context, req *playground.MGetUserBasicInfoRequest) (
 	resp *playground.MGetUserBasicInfoResponse, err error,
 ) {
