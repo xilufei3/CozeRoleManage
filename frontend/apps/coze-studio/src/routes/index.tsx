@@ -45,6 +45,9 @@ import {
   DatabaseDetail,
   ExplorePluginPage,
   ExploreTemplatePage,
+  SystemLayout,
+  RoleManagement,
+  UserManagement,
 } from './async-components';
 
 export const router: ReturnType<typeof createBrowserRouter> =
@@ -231,6 +234,29 @@ export const router: ReturnType<typeof createBrowserRouter> =
                           Component: PluginToolPage,
                         },
                       ],
+                    },
+                  ],
+                },
+
+                // system configuration
+                {
+                  path: 'system',
+                  Component: SystemLayout,
+                  loader: () => ({
+                    subMenuKey: SpaceSubModuleEnum.SYSTEM,
+                  }),
+                  children: [
+                    {
+                      index: true,
+                      element: <Navigate to="roles" replace />,
+                    },
+                    {
+                      path: 'roles',
+                      Component: RoleManagement,
+                    },
+                    {
+                      path: 'users',
+                      Component: UserManagement,
                     },
                   ],
                 },

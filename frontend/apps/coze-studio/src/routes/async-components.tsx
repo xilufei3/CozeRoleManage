@@ -150,3 +150,16 @@ export const ExplorePluginPage = lazy(() =>
     default: exps.PluginPage,
   })),
 );
+
+// system config layout
+export const SystemLayout = lazy(() => import('../pages/system/layout'));
+
+// role management page
+export const RoleManagement = lazy(
+  () => import('../pages/system/role-management'),
+);
+
+// user management page
+export const UserManagement = lazy(
+  () => import('../pages/system/user-management'),
+);

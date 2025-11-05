@@ -83,13 +83,17 @@ func (sa *SingleAgentVersionDAO) Get(ctx context.Context, agentID int64, version
 }
 
 func (sa *SingleAgentVersionDAO) singleAgentVersionPo2Do(po *model.SingleAgentVersion) *entity.SingleAgent {
+	desc := ""
+	if po.Description != nil {
+		desc = *po.Description
+	}
 	return &entity.SingleAgent{
 		SingleAgent: &singleagent.SingleAgent{
 			AgentID:         po.AgentID,
 			CreatorID:       po.CreatorID,
 			SpaceID:         po.SpaceID,
 			Name:            po.Name,
-			Desc:            po.Description,
+			Desc:            desc,
 			IconURI:         po.IconURI,
 			CreatedAt:       po.CreatedAt,
 			UpdatedAt:       po.UpdatedAt,
@@ -113,12 +117,16 @@ func (sa *SingleAgentVersionDAO) singleAgentVersionPo2Do(po *model.SingleAgentVe
 }
 
 func (sa *SingleAgentVersionDAO) singleAgentVersionDo2Po(do *entity.SingleAgent) *model.SingleAgentVersion {
+	var desc *string
+	if do.Desc != "" {
+		desc = &do.Desc
+	}
 	return &model.SingleAgentVersion{
 		AgentID:         do.AgentID,
 		CreatorID:       do.CreatorID,
 		SpaceID:         do.SpaceID,
 		Name:            do.Name,
-		Description:     do.Desc,
+		Description:     desc,
 		IconURI:         do.IconURI,
 		CreatedAt:       do.CreatedAt,
 		UpdatedAt:       do.UpdatedAt,
