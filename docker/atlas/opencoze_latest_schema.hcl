@@ -3661,6 +3661,193 @@ table "space_user" {
     columns = [column.space_id, column.user_id]
   }
 }
+table "rbac_role" {
+  schema  = schema.opencoze
+  comment = "RBAC Custom Role Table"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    auto_increment = true
+    comment        = "Role ID"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Space ID"
+  }
+  column "name" {
+    null    = false
+    type    = varchar(100)
+    comment = "Role Name"
+  }
+  column "description" {
+    null    = false
+    type    = varchar(500)
+    default = ""
+    comment = "Role Description"
+  }
+  column "is_system" {
+    null    = false
+    type    = bool
+    default = 0
+    comment = "Is System Role: 1=system predefined, 0=custom"
+  }
+  column "creator_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Creator User ID"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Creation Time (Milliseconds)"
+  }
+  column "updated_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Update Time (Milliseconds)"
+  }
+  column "deleted_at" {
+    null     = true
+    type     = bigint
+    unsigned = true
+    comment  = "Deletion Time (Milliseconds)"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_space_id" {
+    columns = [column.space_id, column.deleted_at]
+  }
+  index "uniq_space_name" {
+    unique  = true
+    columns = [column.space_id, column.name, column.deleted_at]
+  }
+}
+table "rbac_user_role" {
+  schema  = schema.opencoze
+  comment = "User Role Assignment Table"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    auto_increment = true
+    comment        = "ID"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Space ID"
+  }
+  column "user_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "User ID"
+  }
+  column "role_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Role ID"
+  }
+  column "assigned_by" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Assigned By User ID"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Creation Time (Milliseconds)"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_user_id" {
+    columns = [column.user_id]
+  }
+  index "idx_role_id" {
+    columns = [column.role_id]
+  }
+  index "idx_space_id" {
+    columns = [column.space_id]
+  }
+  index "uniq_user_role_space" {
+    unique  = true
+    columns = [column.space_id, column.user_id, column.role_id]
+  }
+}
+table "rbac_role_resource_permission" {
+  schema  = schema.opencoze
+  comment = "Role Resource Permission Table"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    auto_increment = true
+    comment        = "ID"
+  }
+  column "role_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Role ID"
+  }
+  column "resource_type" {
+    null    = false
+    type    = int
+    comment = "Resource Type: 4=agent, 6=workflow, 7=knowledge, 5=plugin, 23=database"
+  }
+  column "resource_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    default  = 0
+    comment  = "Resource ID, 0 means all resources of this type"
+  }
+  column "actions" {
+    null    = false
+    type    = json
+    comment = "Action Array: [\"create\", \"read\", \"update\", \"delete\", \"execute\", \"publish\", \"manage\", \"query\", \"install\"]"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Creation Time (Milliseconds)"
+  }
+  column "updated_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Update Time (Milliseconds)"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_role_id" {
+    columns = [column.role_id]
+  }
+  index "idx_resource_type" {
+    columns = [column.resource_type]
+  }
+  index "idx_resource_id" {
+    columns = [column.resource_id]
+  }
+  index "uniq_role_resource" {
+    unique  = true
+    columns = [column.role_id, column.resource_type, column.resource_id]
+  }
+}
 table "template" {
   schema  = schema.opencoze
   comment = "Template Info Table"

@@ -45,7 +45,7 @@ class MessageConverseToCoze {
       messageList
         .map(item => this.convertMessage(item, botId))
         .filter(item => !!item.message_id) || [];
-    console.log('messageListForCoze', messageListForCoze);
+    // console.log('messageListForCoze', messageListForCoze);
     return {
       code: 0,
       message_list: messageListForCoze,
@@ -77,8 +77,8 @@ class MessageConverseToCoze {
     }
 
     return {
-      // @ts-expect-error -- linter-disable-autofix, 新添加参数，sdk中还未支持到
-      reasoning_content: message.reasoning_content,
+      // 新添加参数，sdk中还未支持到
+      reasoning_content: '',
       content,
       content_time: (message.created_at || 0) * microSeconds,
       content_type,

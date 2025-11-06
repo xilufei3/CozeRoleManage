@@ -30,6 +30,7 @@ export enum BaseEnum {
   Premium = 'premium', // subscription service
   User = 'user', // personal homepage
   Enterprise = 'enterprise', // Business Management
+  System = 'system', // System Configuration
 }
 
 export enum SpaceAppEnum {

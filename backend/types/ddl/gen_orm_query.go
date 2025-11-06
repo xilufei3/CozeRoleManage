@@ -200,6 +200,13 @@ var path2Table2Columns2Model = map[string]map[string]map[string]any{
 		"space":      {},
 		"space_user": {},
 	},
+	"domain/rbac/internal/dal/query": {
+		"rbac_role":                     {},
+		"rbac_user_role":                {},
+		"rbac_role_resource_permission": {
+			"actions": []string{},
+		},
+	},
 	"domain/app/internal/dal/query": {
 		"app_draft": {},
 		"app_release_record": {

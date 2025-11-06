@@ -38,6 +38,11 @@ var noNeedSessionCheckPath = map[string]bool{
 	"/api/passport/web/email/register/v2/": true,
 }
 
+// 不需要 Session 检查的路径前缀
+var noNeedSessionCheckPrefix = []string{
+	"/api/rbac/", // RBAC 接口测试时暂时免认证
+}
+
 func SessionAuthMW() app.HandlerFunc {
 	return func(c context.Context, ctx *app.RequestContext) {
 		requestAuthType := ctx.GetInt32(RequestAuthTypeStr)
@@ -46,9 +51,20 @@ func SessionAuthMW() app.HandlerFunc {
 			return
 		}
 
-		if noNeedSessionCheckPath[string(ctx.GetRequest().URI().Path())] {
+		path := string(ctx.GetRequest().URI().Path())
+
+		// 检查精确匹配的白名单
+		if noNeedSessionCheckPath[path] {
 			ctx.Next(c)
 			return
+		}
+
+		// 检查前缀匹配的白名单
+		for _, prefix := range noNeedSessionCheckPrefix {
+			if strings.HasPrefix(path, prefix) {
+				ctx.Next(c)
+				return
+			}
 		}
 
 		s := ctx.Cookie(entity.SessionKey)

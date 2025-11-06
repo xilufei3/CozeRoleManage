@@ -15,6 +15,7 @@
  */
 
 import { type FC, useState } from 'react';
+import { useEffect } from 'react';
 
 import { CozeBrand } from '@coze-studio/components/coze-brand';
 import { I18n } from '@coze-arch/i18n';
@@ -34,17 +35,19 @@ export const LoginPage: FC = () => {
     password,
   });
 
+  useEffect(() => {
+    document.title = I18n.t('platform_name');
+  }, []);
+
   const submitDisabled = !email || !password || hasError;
 
   return (
     <SignFrame brandNode={<CozeBrand isOversea={IS_OVERSEA} />}>
       <div className="flex items-center justify-center w-full h-full">
-        {/* ���ͼƬչʾ���� */}
         <div className="flex-1 flex items-center justify-center">
           <Slogan />
         </div>
 
-        {/* �Ҳ��¼��� */}
         <div className="flex-1 flex items-center justify-center">
           <SignPanel className="w-[390px] h-[500px] pt-[50px]">
             <div className="flex flex-col items-center w-full h-full">

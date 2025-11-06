@@ -135,13 +135,17 @@ func (sa *SingleAgentDraftDAO) Delete(ctx context.Context, spaceID, agentID int6
 }
 
 func (sa *SingleAgentDraftDAO) singleAgentDraftPo2Do(po *model.SingleAgentDraft) *entity.SingleAgent {
+	desc := ""
+	if po.Description != nil {
+		desc = *po.Description
+	}
 	return &entity.SingleAgent{
 		SingleAgent: &singleagent.SingleAgent{
 			AgentID:                 po.AgentID,
 			CreatorID:               po.CreatorID,
 			SpaceID:                 po.SpaceID,
 			Name:                    po.Name,
-			Desc:                    po.Description,
+			Desc:                    desc,
 			IconURI:                 po.IconURI,
 			CreatedAt:               po.CreatedAt,
 			UpdatedAt:               po.UpdatedAt,
@@ -165,12 +169,16 @@ func (sa *SingleAgentDraftDAO) singleAgentDraftPo2Do(po *model.SingleAgentDraft)
 }
 
 func (sa *SingleAgentDraftDAO) singleAgentDraftDo2Po(do *entity.SingleAgent) *model.SingleAgentDraft {
+	var desc *string
+	if do.Desc != "" {
+		desc = &do.Desc
+	}
 	return &model.SingleAgentDraft{
 		AgentID:                 do.AgentID,
 		CreatorID:               do.CreatorID,
 		SpaceID:                 do.SpaceID,
 		Name:                    do.Name,
-		Description:             do.Desc,
+		Description:             desc,
 		IconURI:                 do.IconURI,
 		CreatedAt:               do.CreatedAt,
 		UpdatedAt:               do.UpdatedAt,

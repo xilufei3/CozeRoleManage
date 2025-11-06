@@ -15,11 +15,16 @@
  */
 
 import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 
 import { Develop } from '@coze-studio/workspace-adapter/develop';
+import { I18n } from '@coze-arch/i18n';
 
 const Page = () => {
   const { space_id } = useParams();
+  useEffect(() => {
+    document.title = I18n.t('platform_name');
+  }, []);
   return space_id ? <Develop spaceId={space_id} /> : null;
 };
 
