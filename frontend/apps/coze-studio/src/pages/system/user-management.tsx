@@ -26,7 +26,6 @@ import {
   Tag,
   Typography,
   Space,
-  Card,
   Toast,
 } from '@coze-arch/coze-design';
 
@@ -38,6 +37,8 @@ import {
   getUserPermissions,
 } from '@/api/rbac';
 import type { Role, UserPermissions } from '@/api/rbac';
+
+import { UserPermissionDetailModal } from './components/UserPermissionDetailModal';
 
 const { Title, Text } = Typography;
 
@@ -74,13 +75,14 @@ function UserRoleAssignModal({
       onCancel={onCancel}
       okText="保存"
       cancelText="取消"
+      width={700}
     >
       <div className="py-4">
         <Text className="mb-2 block">选择角色</Text>
         <Select
           multiple
           value={selectedRoleIds}
-          onChange={onRoleChange}
+          onChange={value => onRoleChange(value as string[])}
           placeholder="请选择角色"
           style={{ width: '100%' }}
         >
@@ -91,85 +93,6 @@ function UserRoleAssignModal({
           ))}
         </Select>
       </div>
-    </Modal>
-  );
-}
-
-// 用户权限详情模态框
-function UserPermissionDetailModal({
-  visible,
-  userPermission,
-  onClose,
-}: {
-  visible: boolean;
-  userPermission: UserPermissions | null;
-  onClose: () => void;
-}) {
-  return (
-    <Modal
-      title="用户权限详情"
-      visible={visible}
-      onCancel={onClose}
-      footer={[
-        <Button key="close" onClick={onClose}>
-          关闭
-        </Button>,
-      ]}
-      style={{ width: 800 }}
-    >
-      {userPermission ? (
-        <div>
-          <div className="mb-4">
-            <Text strong>基本信息</Text>
-            <div className="mt-2 space-y-2">
-              <div>
-                <Text type="secondary">用户 ID: </Text>
-                <Text>{userPermission.user_id}</Text>
-              </div>
-              <div>
-                <Text type="secondary">工作空间 ID: </Text>
-                <Text>{userPermission.space_id}</Text>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <Text strong className="mb-2 block">
-              拥有角色
-            </Text>
-            <Space wrap>
-              {userPermission.roles?.map(role => (
-                <Tag key={role.id} color="blue">
-                  {role.name}
-                </Tag>
-              ))}
-            </Space>
-          </div>
-
-          <div>
-            <Text strong className="mb-2 block">
-              权限详情
-            </Text>
-            <div className="flex flex-col gap-3">
-              {Object.entries(userPermission.permissions || {}).map(
-                ([resourceType, actions]) => (
-                  <Card
-                    key={resourceType}
-                    title={`资源类型 ${resourceType}`}
-                    bordered
-                  >
-                    <Space wrap>
-                      {(Array.isArray(actions) ? actions : []).map(action => (
-                        <Tag key={action}>{action}</Tag>
-                      ))}
-                    </Space>
-                  </Card>
-                ),
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </Modal>
   );
 }
@@ -271,7 +194,7 @@ function useUserColumns(
       key: 'action',
       width: 220,
       render: (_: unknown, record: (typeof MOCK_USERS)[0]) => (
-        <Space size="small">
+        <Space>
           <Button
             type="tertiary"
             size="small"
@@ -393,7 +316,7 @@ export default function UserManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Title heading={3}>用户管理</Title>
+        <Title heading={3}>用户身份管理</Title>
         <Text type="secondary">为用户分配角色，管理用户的访问权限</Text>
       </div>
 

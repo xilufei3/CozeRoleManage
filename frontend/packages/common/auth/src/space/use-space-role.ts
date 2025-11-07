@@ -36,7 +36,7 @@ export function useSpaceRole(spaceId: string) {
     })),
   );
 
-  if (!isReady) {
+  if (isReady !== true) {
     throw new Error(
       'useSpaceAuth must be used after useInitSpaceRole has been completed.',
     );

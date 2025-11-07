@@ -24,6 +24,7 @@ const (
 	ResourceTypePlugin    ResourceType = 5  // Plugin/插件
 	ResourceTypeWorkflow  ResourceType = 6  // Workflow/工作流
 	ResourceTypeKnowledge ResourceType = 7  // Knowledge/知识库
+	ResourceTypePrompt    ResourceType = 17 // Prompt/提示词
 	ResourceTypeDatabase  ResourceType = 23 // Database/数据库
 )
 
@@ -56,6 +57,8 @@ func GetResourceTypeActions(resourceType ResourceType) []Action {
 		return []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionManage}
 	case ResourceTypePlugin:
 		return []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionInstall}
+	case ResourceTypePrompt:
+		return []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete}
 	case ResourceTypeDatabase:
 		return []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionQuery}
 	default:
@@ -74,6 +77,8 @@ func ResourceTypeName(rt ResourceType) string {
 		return "workflow"
 	case ResourceTypeKnowledge:
 		return "knowledge"
+	case ResourceTypePrompt:
+		return "prompt"
 	case ResourceTypeDatabase:
 		return "database"
 	default:

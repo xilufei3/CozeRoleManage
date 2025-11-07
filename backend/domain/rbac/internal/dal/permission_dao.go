@@ -35,6 +35,11 @@ func NewPermissionDAO(db *gorm.DB) *PermissionDAO {
 	}
 }
 
+// CreatePermission 创建权限配置
+func (dao *PermissionDAO) CreatePermission(ctx context.Context, permission *model.RbacRoleResourcePermission) error {
+	return dao.query.RbacRoleResourcePermission.WithContext(ctx).Create(permission)
+}
+
 // SetRolePermissions 设置角色对资源的权限（覆盖）
 func (dao *PermissionDAO) SetRolePermissions(ctx context.Context, permission *model.RbacRoleResourcePermission) error {
 	// 使用原生 SQL 删除旧的权限配置（避免 reflect.New(nil) 错误）

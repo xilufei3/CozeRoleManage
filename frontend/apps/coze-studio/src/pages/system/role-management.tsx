@@ -30,8 +30,6 @@ import {
   Tag,
   Typography,
   Space,
-  Card,
-  Checkbox,
   Toast,
   Popconfirm,
   TextArea,
@@ -47,36 +45,9 @@ import {
 } from '@/api/rbac';
 import type { Role, Permission } from '@/api/rbac';
 
-const { Title, Text } = Typography;
+import { PermissionConfigModal } from './components/PermissionConfigModal';
 
-// 资源类型定义
-const RESOURCE_TYPES = [
-  {
-    id: 1,
-    name: 'Agent',
-    actions: ['create', 'read', 'update', 'delete', 'execute', 'publish'],
-  },
-  {
-    id: 2,
-    name: 'Workflow',
-    actions: ['create', 'read', 'update', 'delete', 'execute', 'publish'],
-  },
-  {
-    id: 3,
-    name: 'Knowledge',
-    actions: ['create', 'read', 'update', 'delete', 'manage'],
-  },
-  {
-    id: 4,
-    name: 'Plugin',
-    actions: ['create', 'read', 'update', 'delete', 'install'],
-  },
-  {
-    id: 5,
-    name: 'Database',
-    actions: ['create', 'read', 'update', 'delete', 'query'],
-  },
-];
+const { Title, Text } = Typography;
 
 // 角色编辑模态框
 function RoleEditModal({
@@ -106,6 +77,7 @@ function RoleEditModal({
       onCancel={onCancel}
       okText="保存"
       cancelText="取消"
+      width={700}
     >
       <div className="flex flex-col gap-4">
         <div>
@@ -126,74 +98,6 @@ function RoleEditModal({
             placeholder="输入角色描述（可选）"
             className="mt-2"
           />
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// 权限配置模态框
-function PermissionConfigModal({
-  visible,
-  currentRole,
-  permissions,
-  onPermissionChange,
-  onSave,
-  onCancel,
-}: {
-  visible: boolean;
-  currentRole: Role | null;
-  permissions: Record<string, string[]>;
-  onPermissionChange: (key: string, actions: string[]) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Modal
-      title={`配置权限 - ${currentRole?.name}`}
-      visible={visible}
-      onOk={onSave}
-      onCancel={onCancel}
-      okText="保存"
-      cancelText="取消"
-      style={{ width: 800 }}
-    >
-      <div className="max-h-[600px] overflow-y-auto">
-        <Text type="secondary" className="mb-4 block">
-          勾选角色对各类资源的操作权限。Resource ID 为 0
-          表示对该类型的所有资源生效。
-        </Text>
-
-        <div className="flex flex-col gap-4">
-          {RESOURCE_TYPES.map(resource => {
-            const key = `${resource.id}_0`;
-            return (
-              <Card
-                key={resource.id}
-                title={resource.name}
-                className="mb-4"
-                bordered
-              >
-                <div>
-                  <Text className="mb-2 block">所有 {resource.name} 资源</Text>
-                  <Checkbox.Group
-                    value={permissions[key] || []}
-                    onChange={(values: string[]) =>
-                      onPermissionChange(key, values)
-                    }
-                  >
-                    <Space wrap>
-                      {resource.actions.map(action => (
-                        <Checkbox key={action} value={action}>
-                          {action}
-                        </Checkbox>
-                      ))}
-                    </Space>
-                  </Checkbox.Group>
-                </div>
-              </Card>
-            );
-          })}
         </div>
       </div>
     </Modal>
@@ -311,8 +215,8 @@ function usePermissionConfig() {
 
   const showPermissionModal = async (role: Role) => {
     setCurrentRole(role);
-    setIsPermissionModalVisible(true);
 
+    // 先加载权限数据
     try {
       const data = await getRolePermissions(role.id);
       const permMap: Record<string, string[]> = {};
@@ -327,6 +231,9 @@ function usePermissionConfig() {
       console.warn('加载权限失败，可能后端 API 未实现', error);
       setPermissions({});
     }
+
+    // 权限加载完成后再显示对话框
+    setIsPermissionModalVisible(true);
   };
 
   const handleSavePermissions = async () => {
@@ -398,7 +305,7 @@ function useRoleColumns(
       key: 'is_system',
       width: 100,
       render: (isSystem: boolean) => (
-        <Tag color={isSystem ? 'blue' : 'default'}>
+        <Tag color={isSystem ? 'blue' : undefined}>
           {isSystem ? '系统角色' : '自定义'}
         </Tag>
       ),
@@ -415,7 +322,7 @@ function useRoleColumns(
       key: 'action',
       width: 240,
       render: (_: unknown, record: Role) => (
-        <Space size="small">
+        <Space>
           <Button
             type="tertiary"
             size="small"
@@ -506,7 +413,7 @@ export default function RoleManagement() {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <Title heading={3}>角色管理</Title>
+          <Title heading={3}>角色资源分配</Title>
           <Text type="secondary">
             管理系统角色，为角色配置不同资源的访问权限
           </Text>
@@ -551,6 +458,7 @@ export default function RoleManagement() {
         onPermissionChange={handlePermissionChange}
         onSave={handleSavePermissions}
         onCancel={() => setIsPermissionModalVisible(false)}
+        spaceId={spaceId}
       />
     </div>
   );

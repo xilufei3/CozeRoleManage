@@ -24,7 +24,7 @@ import (
 
 // RBACService RBAC服务接口
 type RBACService interface {
-	// ========== 角色管理 ==========
+	// ---------- 角色管理 ----------
 
 	// CreateRole 创建角色
 	CreateRole(ctx context.Context, req *CreateRoleRequest) (*entity.Role, error)
@@ -41,7 +41,7 @@ type RBACService interface {
 	// ListRoles 查询空间下的角色列表
 	ListRoles(ctx context.Context, spaceID int64) ([]*entity.Role, error)
 
-	// ========== 用户角色分配 ==========
+	// ---------- 用户角色分配 ----------
 
 	// AssignRoleToUser 为用户分配角色
 	AssignRoleToUser(ctx context.Context, req *AssignRoleRequest) error
@@ -55,7 +55,7 @@ type RBACService interface {
 	// GetUserPermissions 获取用户的所有权限（聚合）
 	GetUserPermissions(ctx context.Context, spaceID, userID int64) (*entity.UserPermissions, error)
 
-	// ========== 权限管理 ==========
+	// ---------- 权限管理 ----------
 
 	// SetRolePermissions 批量设置角色权限（覆盖）
 	SetRolePermissions(ctx context.Context, req *SetRolePermissionsRequest) error
@@ -69,7 +69,7 @@ type RBACService interface {
 	// GetResourcePermissions 获取资源的权限详情（所有角色对该资源的权限）
 	GetResourcePermissions(ctx context.Context, resourceType entity.ResourceType, resourceID int64) ([]*RolePermissionInfo, error)
 
-	// ========== 权限检查 ==========
+	// ---------- 权限检查 ----------
 
 	// CheckPermission 检查用户是否有权限执行某操作
 	CheckPermission(ctx context.Context, check *entity.PermissionCheck) (bool, error)
@@ -79,9 +79,14 @@ type RBACService interface {
 
 	// GetAccessibleResources 获取用户可访问的资源列表（按权限过滤）
 	GetAccessibleResources(ctx context.Context, req *GetAccessibleResourcesRequest) ([]int64, error)
+
+	// ---------- 资源查询 ----------
+
+	// GetSpaceAgents 获取空间下的 Agent 列表
+	GetSpaceAgents(ctx context.Context, spaceID int64) ([]*AgentBasicInfo, error)
 }
 
-// ========== 请求/响应结构体 ==========
+// ---------- 请求/响应结构体 ----------
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
@@ -142,6 +147,11 @@ type RolePermissionInfo struct {
 	Permissions []string `json:"permissions"`
 }
 
-
+// AgentBasicInfo Agent 基本信息
+type AgentBasicInfo struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
 
 

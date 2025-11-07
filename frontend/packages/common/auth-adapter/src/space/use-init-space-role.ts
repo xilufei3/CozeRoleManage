@@ -21,8 +21,8 @@
 import { useEffect } from 'react';
 
 import { useShallow } from 'zustand/react/shallow';
-import { SpaceRoleType } from '@coze-arch/idl/developer_api';
 import { useSpaceAuthStore } from '@coze-common/auth';
+import { SpaceRoleType } from '@coze-arch/idl/developer_api';
 
 export function useInitSpaceRole(spaceId: string) {
   const { setIsReady, setRoles, isReady } = useSpaceAuthStore(
@@ -36,7 +36,8 @@ export function useInitSpaceRole(spaceId: string) {
   useEffect(() => {
     setRoles(spaceId, [SpaceRoleType.Owner]);
     setIsReady(spaceId, true);
-  }, [spaceId]);
+  }, [spaceId, setRoles, setIsReady]);
 
-  return isReady;
+  // 返回 true 如果已初始化，否则返回 false（而不是 undefined）
+  return isReady === true;
 }

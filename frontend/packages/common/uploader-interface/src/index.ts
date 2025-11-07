@@ -248,7 +248,7 @@ export interface UploadResultVideoMeta {
  */
 export interface UploadResult {
   // video
-  // =======
+  // -------
   // video VID
   Vid?: string;
   // Video meta information, returned when a configuration for obtaining meta information is added
@@ -257,12 +257,12 @@ export interface UploadResult {
   PosterUri?: string;
 
   // Pictures & Files
-  // ==========
+  // ----------
   // The URI of the source file in tos, in the format bucket/oid. Consistent with ImageUri for images
   Uri?: string;
 
   // picture
-  // ==========
+  // ----------
   // Image URI in bucket/oid format
   ImageUri?: string;
   // image width
@@ -275,7 +275,7 @@ export interface UploadResult {
   FileName?: string;
 
   // file
-  // ==========
+  // ----------
   // File meta information, returned when a configuration for obtaining meta information is added
   ObjectMeta?: {
     Md5: string;

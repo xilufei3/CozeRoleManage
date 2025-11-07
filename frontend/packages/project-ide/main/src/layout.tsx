@@ -17,8 +17,11 @@
 import { useParams } from 'react-router-dom';
 import React from 'react';
 
+import {
+  useInitProjectRole,
+  useInitSpaceRole,
+} from '@coze-common/auth-adapter';
 import { useDestoryProject } from '@coze-common/auth';
-import { useInitProjectRole } from '@coze-common/auth-adapter';
 
 import { ProjectIDE } from './index';
 
@@ -33,8 +36,13 @@ const ProjectIDEContainer = ({
 }) => {
   useDestoryProject(projectId);
 
+  // Initializing Space Role Data
+  const isSpaceReady = useInitSpaceRole(spaceId);
+
   // Initializing Project Role Data
-  const isCompleted = useInitProjectRole(spaceId, projectId);
+  const isProjectReady = useInitProjectRole(spaceId, projectId);
+
+  const isCompleted = isSpaceReady && isProjectReady;
 
   return isCompleted ? (
     <ProjectIDE spaceId={spaceId} projectId={projectId} version={version} />

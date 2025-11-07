@@ -37,8 +37,8 @@ export default function SystemLayout() {
     <div className="h-full flex flex-col bg-white">
       <div className="px-6 pt-6 border-b border-gray-200">
         <Tabs activeKey={getActiveKey()} onChange={handleTabChange} type="line">
-          <TabPane tab="角色管理" itemKey="roles" />
-          <TabPane tab="用户管理" itemKey="users" />
+          <TabPane tab="角色资源分配" itemKey="roles" />
+          <TabPane tab="用户身份管理" itemKey="users" />
         </Tabs>
       </div>
       <div className="flex-1 overflow-auto">

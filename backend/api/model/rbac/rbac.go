@@ -16,7 +16,7 @@
 
 package rbac
 
-// ========== 角色管理 API ==========
+// ---------- 角色管理 API ----------
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
@@ -86,7 +86,7 @@ type ListRolesData struct {
 	Total int         `json:"total"`
 }
 
-// ========== 用户角色分配 API ==========
+// ---------- 用户角色分配 API ----------
 
 // AssignRoleRequest 分配角色请求
 type AssignRoleRequest struct {
@@ -147,13 +147,14 @@ type GetUserPermissionsResponse struct {
 
 // UserPermissionsData 用户权限数据
 type UserPermissionsData struct {
-	UserID      int64                       `json:"user_id,string"`
-	SpaceID     int64                       `json:"space_id,string"`
-	Roles       []*RoleInfo                 `json:"roles"`
-	Permissions map[int][]string            `json:"permissions"` // resourceType -> actions
+	UserID            int64              `json:"user_id,string"`
+	SpaceID           int64              `json:"space_id,string"`
+	Roles             []*RoleInfo        `json:"roles"`
+	Permissions       map[int][]string   `json:"permissions"`         // resourceType -> actions
+	DetailPermissions []*PermissionInfo  `json:"detail_permissions"` // 详细权限列表（包含资源ID）
 }
 
-// ========== 权限管理 API ==========
+// ---------- 权限管理 API ----------
 
 // SetRolePermissionsRequest 批量设置角色权限请求
 type SetRolePermissionsRequest struct {
@@ -233,7 +234,7 @@ type RolePermissionInfo struct {
 	Actions  []string `json:"actions"`
 }
 
-// ========== 权限检查 API ==========
+// ---------- 权限检查 API ----------
 
 // CheckPermissionRequest 单个权限检查请求
 type CheckPermissionRequest struct {
@@ -282,7 +283,7 @@ type BatchPermissionCheckResult struct {
 	Results map[string]bool `json:"results"` // key: "{resourceType}_{resourceID}_{action}"
 }
 
-// ========== 数据结构 ==========
+// ---------- 数据结构 ----------
 
 // RoleInfo 角色基本信息
 type RoleInfo struct {
@@ -311,6 +312,33 @@ type PermissionInfo struct {
 	Actions      []string `json:"actions"`
 	CreatedAt    int64    `json:"created_at"`
 	UpdatedAt    int64    `json:"updated_at"`
+}
+
+// ---------- 资源查询 API ----------
+
+// GetSpaceAgentsRequest 获取空间 Agent 列表请求
+type GetSpaceAgentsRequest struct {
+	SpaceID int64 `query:"space_id,string" binding:"required"`
+}
+
+// GetSpaceAgentsResponse 获取空间 Agent 列表响应
+type GetSpaceAgentsResponse struct {
+	Code int64           `json:"code"`
+	Msg  string          `json:"msg"`
+	Data *AgentListData  `json:"data"`
+}
+
+// AgentListData Agent 列表数据
+type AgentListData struct {
+	Agents []*AgentInfo `json:"agents"`
+	Total  int          `json:"total"`
+}
+
+// AgentInfo Agent 信息
+type AgentInfo struct {
+	ID          int64  `json:"id,string"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 

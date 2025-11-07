@@ -43,6 +43,7 @@ type RoleRepository interface {
 
 // PermissionRepository 权限仓储接口
 type PermissionRepository interface {
+	CreatePermission(ctx context.Context, permission *model.RbacRoleResourcePermission) error
 	SetRolePermissions(ctx context.Context, permission *model.RbacRoleResourcePermission) error
 	GetRolePermissions(ctx context.Context, roleID int64) ([]*model.RbacRoleResourcePermission, error)
 	GetRolePermissionsByResourceType(ctx context.Context, roleID int64, resourceType int) ([]*model.RbacRoleResourcePermission, error)

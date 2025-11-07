@@ -31,7 +31,8 @@ export function useInitProjectRole(spaceId: string, projectId: string) {
   useEffect(() => {
     setRoles(projectId, [ProjectRoleType.Owner]);
     setIsReady(projectId, true);
-  }, [projectId]);
+  }, [projectId, setRoles, setIsReady]);
 
-  return isReady; // Whether the initialization is complete.
+  // 返回 true 如果已初始化，否则返回 false（而不是 undefined）
+  return isReady === true;
 }

@@ -28,7 +28,7 @@ import (
 	"github.com/coze-dev/coze-studio/backend/domain/rbac/service"
 )
 
-// ========== 角色管理 Handler ==========
+// ---------- 角色管理 Handler ----------
 
 // CreateRole 创建角色
 // @router /api/rbac/roles [POST]
@@ -192,7 +192,7 @@ func ListRoles(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
-// ========== 用户角色分配 Handler ==========
+// ---------- 用户角色分配 Handler ----------
 
 // AssignRoleToUser 为用户分配角色
 // @router /api/rbac/users/{userId}/roles [POST]
@@ -314,18 +314,33 @@ func GetUserPermissions(ctx context.Context, c *app.RequestContext) {
 		permissions[int(rt)] = actionStrs
 	}
 
+	// 转换详细权限列表
+	detailPerms := make([]*rbacModel.PermissionInfo, 0, len(userPerms.DetailPermissions))
+	for _, perm := range userPerms.DetailPermissions {
+		detailPerms = append(detailPerms, &rbacModel.PermissionInfo{
+			ID:           perm.ID,
+			RoleID:       perm.RoleID,
+			ResourceType: int(perm.ResourceType),
+			ResourceID:   perm.ResourceID,
+			Actions:      perm.Actions,
+			CreatedAt:    perm.CreatedAt,
+			UpdatedAt:    perm.UpdatedAt,
+		})
+	}
+
 	resp := &rbacModel.GetUserPermissionsResponse{
 		Data: &rbacModel.UserPermissionsData{
-			UserID:      userPerms.UserID,
-			SpaceID:     userPerms.SpaceID,
-			Roles:       roleInfos,
-			Permissions: permissions,
+			UserID:            userPerms.UserID,
+			SpaceID:           userPerms.SpaceID,
+			Roles:             roleInfos,
+			Permissions:       permissions,
+			DetailPermissions: detailPerms,
 		},
 	}
 	c.JSON(consts.StatusOK, resp)
 }
 
-// ========== 权限管理 Handler ==========
+// ---------- 权限管理 Handler ----------
 
 // SetRolePermissions 批量设置角色权限
 // @router /api/rbac/roles/{roleId}/permissions/batch [POST]
@@ -456,7 +471,7 @@ func GetResourcePermissions(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
-// ========== 权限检查 Handler ==========
+// ---------- 权限检查 Handler ----------
 
 // CheckPermission 单个权限检查
 // @router /api/rbac/check [POST]
@@ -523,4 +538,37 @@ func BatchCheckPermissions(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
+// ---------- 资源查询 Handler ----------
 
+// GetSpaceAgents 获取空间下的 Agent 列表
+// @router /api/rbac/resources/agents [GET]
+func GetSpaceAgents(ctx context.Context, c *app.RequestContext) {
+	var req rbacModel.GetSpaceAgentsRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	agents, err := rbac.RBACService.GetSpaceAgents(ctx, req.SpaceID)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	agentList := make([]*rbacModel.AgentInfo, 0, len(agents))
+	for _, agent := range agents {
+		agentList = append(agentList, &rbacModel.AgentInfo{
+			ID:          agent.ID,
+			Name:        agent.Name,
+			Description: agent.Description,
+		})
+	}
+
+	resp := &rbacModel.GetSpaceAgentsResponse{
+		Data: &rbacModel.AgentListData{
+			Agents: agentList,
+			Total:  len(agents),
+		},
+	}
+	c.JSON(consts.StatusOK, resp)
+}

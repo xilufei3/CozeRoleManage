@@ -52,10 +52,11 @@ type Permission struct {
 
 // UserPermissions 用户的权限信息（聚合）
 type UserPermissions struct {
-	UserID      int64                   `json:"user_id"`
-	SpaceID     int64                   `json:"space_id"`
-	Roles       []*Role                  `json:"roles"`                  // 用户拥有的角色
-	Permissions map[ResourceType][]Action `json:"permissions"` // 聚合后的权限（按资源类型）
+	UserID            int64                     `json:"user_id"`
+	SpaceID           int64                     `json:"space_id"`
+	Roles             []*Role                   `json:"roles"`                       // 用户拥有的角色
+	Permissions       map[ResourceType][]Action `json:"permissions"`                 // 聚合后的权限（按资源类型）
+	DetailPermissions []*Permission             `json:"detail_permissions,omitempty"` // 详细权限列表（包含具体资源ID）
 }
 
 // PermissionCheck 权限检查请求
