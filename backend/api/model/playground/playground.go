@@ -29,20 +29,32 @@ import (
 	"github.com/coze-dev/coze-studio/backend/api/model/base"
 )
 
-type GetSpaceUserListRequest struct {
+type SpaceUserInfo struct {
+	UserID   int64  `thrift:"userID,1,required" json:"userID,string"`
+	RoleType int32  `thrift:"role_Type,2,required" json:"role_type"`
+	Name     string `thrift:"name,3,optional" json:"name"`
+	Email    string `thrift:"email,4,optional" json:"email"`
 }
 
-type SpaceUserInfo struct {
-	UserID   int64  `thrift:"userID,1,required" json:"userID"`
-  RoleType int32  `thrift:"roleType,2,required" json:"roleType"`
-  Name     string `thrift:"name,3,optional" json:"name"`
-  Email    string `thrift:"email,4,optional" json:"email"`
+type SpaceUserListData struct {
+	SpaceUserList []*SpaceUserInfo `json:"spaceUserList"`
+	Total         int              `json:"total"`
+	Page          int              `json:"page"`
+	Size          int              `json:"size"`
+}
+
+type GetSpaceUserListRequest struct {
+	SpaceID    int64  `path:"space_id,string" binding:"required"`
+	Page       int    `query:"page"`
+	Size       int    `query:"size"`
+	SearchWord string `query:"search_word"`
 }
 
 type GetSpaceUserListResponse struct {
-	SpaceUserList []*SpaceUserInfo `thrift:"spaceUserList,1,required" json:"spaceUserList"`
+	Code int32              `json:"code"`
+	Msg  string             `json:"msg"`
+	Data *SpaceUserListData `json:"data"`
 }
-
 
 type CreateSpaceUserRequest struct {
 	Password  string `thrift:"password,1,required" json:"password"`
@@ -63,11 +75,25 @@ func (p *CreateSpaceUserRequest) GetSpaceRole() (v int32) {
 }
 
 type CreateSpaceUserResponse struct {
-	Code int32 `thrift:"code,1,required" json:"code"`
+	Code int32  `thrift:"code,1,required" json:"code"`
+	Msg  string `json:"msg"`
 }
 
 func (p *CreateSpaceUserResponse) GetCode() (v int32) {
 	return p.Code
+}
+
+// UpdateUserSpaceRoleRequest 更新用户空间角色请求
+type UpdateUserSpaceRoleRequest struct {
+	SpaceID       int64 `path:"space_id,string" binding:"required"`
+	UserID        int64 `path:"user_id,string" binding:"required"`
+	SpaceRoleType int32 `json:"space_role_type" binding:"required"`
+}
+
+// UpdateUserSpaceRoleResponse 更新用户空间角色响应
+type UpdateUserSpaceRoleResponse struct {
+	Code int32  `json:"code"`
+	Msg  string `json:"msg"`
 }
 
 // branch

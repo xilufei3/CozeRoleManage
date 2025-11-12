@@ -39,6 +39,7 @@ export default function SystemLayout() {
         <Tabs activeKey={getActiveKey()} onChange={handleTabChange} type="line">
           <TabPane tab="角色管理" itemKey="roles" />
           <TabPane tab="用户管理" itemKey="users" />
+          <TabPane tab="身份管理" itemKey="identity" />
         </Tabs>
       </div>
       <div className="flex-1 overflow-auto">

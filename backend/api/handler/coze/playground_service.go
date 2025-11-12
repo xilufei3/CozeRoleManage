@@ -24,8 +24,12 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
+	"strconv"
+	"strings"
+
 	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	appApplication "github.com/coze-dev/coze-studio/backend/application/app"
+	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	"github.com/coze-dev/coze-studio/backend/application/prompt"
 	"github.com/coze-dev/coze-studio/backend/application/shortcutcmd"
 	"github.com/coze-dev/coze-studio/backend/application/singleagent"
@@ -204,7 +208,7 @@ func GetSpaceListV2(ctx context.Context, c *app.RequestContext) {
 }
 
 // CreateSpaceUser .
-// @router /api/playground_api/space/user_create [POST]
+// @router /api/playground_api/space/:space_id/user_create [POST]
 func CreateSpaceUser(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req playground.CreateSpaceUserRequest
@@ -214,8 +218,33 @@ func CreateSpaceUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 路径参数 space_id
+	spaceIDStr := strings.TrimSpace(c.Param("space_id"))
+	sid, err := strconv.ParseInt(spaceIDStr, 10, 64)
+	if err != nil || sid <= 0 {
+		invalidParamRequestResponse(c, "invalid space_id")
+		return
+	}
+
+	// 仅Owner可调用：直接查询当前用户在目标空间的角色
+	uid := ctxutil.MustGetUIDFromCtx(ctx)
+
+	roleType, exist, err := user.UserApplicationSVC.DomainSVC.GetUserSpaceRole(ctx, uid, sid)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+	if !exist || roleType != 1 { // 1 = Owner
+		c.JSON(consts.StatusOK, map[string]any{
+			"code": 403,
+			"msg":  "only owner can create space user",
+		})
+		return
+	}
+
 	locale := string(i18n.GetLocale(ctx))
 
+	// 将创建限定到该 space（如果 Domain 侧需要，可以在内部按 caller 所属空间处理）
 	resp, err := user.UserApplicationSVC.CreateSpaceUser(ctx, locale, &req)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
@@ -225,16 +254,27 @@ func CreateSpaceUser(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
-
 // GetSpaceUserList .
-// @router /api/playground_api/space/user_list [GET]
+// @router /api/playground_api/space/:space_id/user_list [GET]
 func GetSpaceUserList(ctx context.Context, c *app.RequestContext) {
-	var err error
 	var req playground.GetSpaceUserListRequest
-	err = c.BindAndValidate(&req)
-	if err != nil {
+	if err := c.BindAndValidate(&req); err != nil {
 		invalidParamRequestResponse(c, err.Error())
 		return
+	}
+
+	if req.SpaceID == 0 {
+		spaceIDStr := strings.TrimSpace(c.Param("space_id"))
+		if spaceIDStr == "" {
+			invalidParamRequestResponse(c, "space_id is required")
+			return
+		}
+		spaceID, err := strconv.ParseInt(spaceIDStr, 10, 64)
+		if err != nil || spaceID <= 0 {
+			invalidParamRequestResponse(c, "invalid space_id")
+			return
+		}
+		req.SpaceID = spaceID
 	}
 
 	resp, err := user.UserApplicationSVC.GetSpaceUserList(ctx, &req)
@@ -246,6 +286,31 @@ func GetSpaceUserList(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
+// UpdateUserSpaceRole 更新用户在空间的身份
+// @router /api/playground_api/space/:space_id/users/:user_id/role [PUT]
+func UpdateUserSpaceRole(ctx context.Context, c *app.RequestContext) {
+	var req playground.UpdateUserSpaceRoleRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		invalidParamRequestResponse(c, err.Error())
+		return
+	}
+
+	if req.SpaceRoleType != 2 && req.SpaceRoleType != 3 {
+		invalidParamRequestResponse(c, "role type must be admin(2) or member(3)")
+		return
+	}
+
+	err := user.UserApplicationSVC.UpdateUserSpaceRole(ctx, req.SpaceID, req.UserID, req.SpaceRoleType)
+	if err != nil {
+		internalServerErrorResponse(ctx, c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, &playground.UpdateUserSpaceRoleResponse{
+		Code: 0,
+		Msg:  "",
+	})
+}
 
 // GetImagexShortUrl .
 // @router /api/playground_api/get_imagex_url [POST]

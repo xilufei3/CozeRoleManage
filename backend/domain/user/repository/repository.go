@@ -54,4 +54,6 @@ type SpaceRepository interface {
 	AddSpaceUser(ctx context.Context, spaceUser *model.SpaceUser) error
 	GetSpaceList(ctx context.Context, userID int64) ([]*model.SpaceUser, error)
 	GetUserList(ctx context.Context, spaceID int64) ([]*model.SpaceUser, error)
+	GetUserSpaceRole(ctx context.Context, userID, spaceID int64) (roleType int32, exist bool, err error)
+	UpdateUserSpaceRole(ctx context.Context, userID, spaceID int64, roleType int32) error
 }

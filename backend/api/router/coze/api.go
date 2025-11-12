@@ -342,8 +342,9 @@ func Register(r *server.Hertz) {
 			{
 				_space := _playground_api.Group("/space", _spaceMw()...)
 				_space.POST("/list", append(_getspacelistv2Mw(), coze.GetSpaceListV2)...)
-				_space.POST("/user_create", append(_createuserMw(), coze.CreateSpaceUser)...)
-				_space.GET("/user_list", append(_getspaceuserlistMw(), coze.GetSpaceUserList)...)
+				_space.GET("/:space_id/user_list", append(_getspaceuserlistMw(), coze.GetSpaceUserList)...)
+				_space.POST("/:space_id/user_create", append(_createuserMw(), coze.CreateSpaceUser)...)
+				_space.PUT("/:space_id/users/:user_id/role", append(_updateuserspaceroleMw(), coze.UpdateUserSpaceRole)...)
 			}
 		}
 		{

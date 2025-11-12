@@ -6,7 +6,8 @@
     "codezombiech.gitignore",
     "aaron-bond.better-comments",
     "mikestead.dotenv",
-    "stylelint.vscode-stylelint"
+    "stylelint.vscode-stylelint",
+    "ms-ceintl.vscode-language-pack-zh-hans"
   ],
   "unwantedRecommendations": [
     "nucllear.vscode-extension-auto-import",

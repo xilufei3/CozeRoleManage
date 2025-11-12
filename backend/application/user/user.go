@@ -18,6 +18,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 	"net/mail"
 	"slices"
 	"strconv"
@@ -224,19 +225,32 @@ func (u *UserApplicationService) GetSpaceListV2(ctx context.Context, req *playgr
 	resp *playground.GetSpaceListV2Response, err error,
 ) {
 	uid := ctxutil.MustGetUIDFromCtx(ctx)
-
+	// 先获取 SpaceUser 列表，包含 roleType 信息
+	userSpaceRoles, err := u.DomainSVC.GetUserSpaceRoleList(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	// 构建 spaceID -> roleType 映射
+	spaceRoleMap := make(map[int64]int32)
+	for _, usr := range userSpaceRoles {
+		if usr != nil {
+			spaceRoleMap[usr.SpaceID] = usr.RoleType
+		}
+	}
+	// 获取 Space 详细信息
 	spaces, err := u.DomainSVC.GetUserSpaceList(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
-
 	botSpaces := langSlices.Transform(spaces, func(space *entity.Space) *playground.BotSpaceV2 {
+		roleType := spaceRoleMap[space.ID]
 		return &playground.BotSpaceV2{
 			ID:          space.ID,
 			Name:        space.Name,
 			Description: space.Description,
 			SpaceType:   playground.SpaceType(space.SpaceType),
 			IconURL:     space.IconURL,
+			RoleType:    roleType,
 		}
 	})
 
@@ -253,7 +267,6 @@ func (u *UserApplicationService) GetSpaceListV2(ctx context.Context, req *playgr
 	}, nil
 }
 
-
 func (u *UserApplicationService) CreateSpaceUser(ctx context.Context, locale string, req *playground.CreateSpaceUserRequest) (
 	resp *playground.CreateSpaceUserResponse, err error,
 ) {
@@ -266,8 +279,8 @@ func (u *UserApplicationService) CreateSpaceUser(ctx context.Context, locale str
 	_, err = u.DomainSVC.CreateUser(ctx, &user.CreateUserRequest{
 		Email:    req.GetEmail(),
 		Password: req.GetPassword(),
-		SpaceID: spaceIDs[0],
-		Locale: locale,
+		SpaceID:  spaceIDs[0],
+		Locale:   locale,
 	}, req.GetSpaceRole())
 
 	if err != nil {
@@ -276,6 +289,7 @@ func (u *UserApplicationService) CreateSpaceUser(ctx context.Context, locale str
 
 	return &playground.CreateSpaceUserResponse{
 		Code: 0,
+		Msg:  "",
 	}, nil
 }
 
@@ -288,17 +302,110 @@ func (u *UserApplicationService) GetSpaceUserList(ctx context.Context, req *play
 	if err != nil {
 		return nil, err
 	}
-	userInfos, err := u.DomainSVC.GetSpaceUserList(ctx, spaceIDs[0])
+
+	if !slices.Contains(spaceIDs, req.SpaceID) {
+		return nil, errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "space not accessible by current user"))
+	}
+
+	userInfos, err := u.DomainSVC.GetSpaceUserList(ctx, req.SpaceID)
 	if err != nil {
 		return nil, err
 	}
 
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	size := req.Size
+	if size <= 0 {
+		size = 50
+	} else if size > 500 {
+		size = 500
+	}
+
+	filtered := make([]*playground.SpaceUserInfo, 0, len(userInfos))
+	if req.SearchWord != "" {
+		sw := strings.ToLower(req.SearchWord)
+		for _, info := range userInfos {
+			if strings.Contains(strings.ToLower(info.Name), sw) || strings.Contains(strings.ToLower(info.Email), sw) {
+				filtered = append(filtered, info)
+			}
+		}
+	} else {
+		filtered = append(filtered, userInfos...)
+	}
+
+	total := len(filtered)
+	start := (page - 1) * size
+	if start > total {
+		start = total
+	}
+	end := start + size
+	if end > total {
+		end = total
+	}
+	paged := filtered[start:end]
+
+	converted := make([]*playground.SpaceUserInfo, 0, len(paged))
+	for _, info := range paged {
+		converted = append(converted, &playground.SpaceUserInfo{
+			UserID:   info.UserID,
+			RoleType: info.RoleType,
+			Name:     info.Name,
+			Email:    info.Email,
+		})
+	}
+
 	return &playground.GetSpaceUserListResponse{
-		SpaceUserList: userInfos,
+		Code: 0,
+		Msg:  "",
+		Data: &playground.SpaceUserListData{
+			SpaceUserList: converted,
+			Total:         total,
+			Page:          page,
+			Size:          size,
+		},
 	}, nil
 }
 
+// UpdateUserSpaceRole 更新用户在空间的角色
+func (u *UserApplicationService) UpdateUserSpaceRole(ctx context.Context, spaceID, userID int64, roleType int32) error {
+	// 权限校验：仅Owner可以修改
+	currentUID := ctxutil.MustGetUIDFromCtx(ctx)
+	currentRole, exist, err := u.DomainSVC.GetUserSpaceRole(ctx, currentUID, spaceID)
+	if err != nil {
+		return err
+	}
+	if !exist || currentRole != 1 { // 1 = Owner
+		return errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "only owner can update user role"))
+	}
 
+	// 验证角色类型：只能设置为 Admin(2) 或 Member(3)
+	if roleType != 2 && roleType != 3 {
+		return errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "role type must be admin(2) or member(3)"))
+	}
+
+	// 不能修改自己的角色
+	if userID == currentUID {
+		return errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "cannot update own role"))
+	}
+
+	// 检查目标用户是否在空间中
+	targetRole, exist, err := u.DomainSVC.GetUserSpaceRole(ctx, userID, spaceID)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		// 添加更详细的错误信息，包含 userID 和 spaceID
+		return errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", fmt.Sprintf("user not found in space: userID=%d, spaceID=%d", userID, spaceID)))
+	}
+	// 不能修改Owner的角色
+	if targetRole == 1 {
+		return errorx.New(errno.ErrUserInvalidParamCode, errorx.KV("msg", "cannot update owner role"))
+	}
+
+	return u.DomainSVC.UpdateUserSpaceRole(ctx, userID, spaceID, roleType)
+}
 
 func (u *UserApplicationService) MGetUserBasicInfo(ctx context.Context, req *playground.MGetUserBasicInfoRequest) (
 	resp *playground.MGetUserBasicInfoResponse, err error,

@@ -48,6 +48,7 @@ import {
   SystemLayout,
   RoleManagement,
   UserManagement,
+  IdentityManagement,
 } from './async-components';
 
 export const router: ReturnType<typeof createBrowserRouter> =
@@ -257,6 +258,10 @@ export const router: ReturnType<typeof createBrowserRouter> =
                     {
                       path: 'users',
                       Component: UserManagement,
+                    },
+                    {
+                      path: 'identity',
+                      Component: IdentityManagement,
                     },
                   ],
                 },

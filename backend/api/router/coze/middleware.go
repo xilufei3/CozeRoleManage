@@ -830,6 +830,10 @@ func _createuserMw() []app.HandlerFunc {
 	return nil
 }
 
+func _updateuserspaceroleMw() []app.HandlerFunc {
+	return []app.HandlerFunc{}
+}
+
 func _getspaceuserlistMw() []app.HandlerFunc {
 	// your code...
 	return nil

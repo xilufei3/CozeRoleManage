@@ -476,6 +476,19 @@ func (u *userImpl) GetUserSpaceIDs(ctx context.Context, userID int64) (spaceIDs 
 	}), nil
 }
 
+func (u *userImpl) GetUserSpaceRoleList(ctx context.Context, userID int64) (spaceRoles []*UserSpaceRole, err error) {
+	userSpaces, err := u.SpaceRepo.GetSpaceList(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Transform(userSpaces, func(us *model.SpaceUser) *UserSpaceRole {
+		return &UserSpaceRole{
+			SpaceID:  us.SpaceID,
+			RoleType: us.RoleType,
+		}
+	}), nil
+}
+
 func (u *userImpl) CreateUser(ctx context.Context, req *CreateUserRequest, SpaceRole int32) (user *userEntity.User, err error) {
 	exist, err := u.UserRepo.CheckEmailExist(ctx, req.Email)
 	if err != nil {
@@ -567,15 +580,22 @@ func (u *userImpl) GetSpaceUserList(ctx context.Context, spaceID int64) (userInf
 	userInfos = make([]*playground.SpaceUserInfo, 0, len(spaceUsers))
 	for _, us := range spaceUsers {
 		userInfos = append(userInfos, &playground.SpaceUserInfo{
-			UserID:   us.UserID,
-			RoleType: us.RoleType,
-			Name:     userMap[us.UserID].Name,
-			Email:    userMap[us.UserID].Email,
+			UserID:        us.UserID,
+			RoleType: 		 us.RoleType,
+			Name:          userMap[us.UserID].Name,
+			Email:         userMap[us.UserID].Email,
 		})
 	}
 	return userInfos, nil
 }
 
+func (u *userImpl) GetUserSpaceRole(ctx context.Context, userID, spaceID int64) (roleType int32, exist bool, err error) {
+	return u.SpaceRepo.GetUserSpaceRole(ctx, userID, spaceID)
+}
+
+func (u *userImpl) UpdateUserSpaceRole(ctx context.Context, userID, spaceID int64, roleType int32) error {
+	return u.SpaceRepo.UpdateUserSpaceRole(ctx, userID, spaceID, roleType)
+}
 
 func spacePo2Do(space *model.Space, iconUrl string) *userEntity.Space {
 	return &userEntity.Space{

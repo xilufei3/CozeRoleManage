@@ -163,3 +163,8 @@ export const RoleManagement = lazy(
 export const UserManagement = lazy(
   () => import('../pages/system/user-management'),
 );
+
+// identity management page
+export const IdentityManagement = lazy(
+  () => import('../pages/system/identity-management'),
+);

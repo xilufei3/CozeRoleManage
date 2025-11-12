@@ -50,6 +50,11 @@ type ValidateProfileUpdateResponse struct {
 	Msg  string
 }
 
+type UserSpaceRole struct {
+	SpaceID  int64
+	RoleType int32
+}
+
 type CreateUserRequest struct {
 	Email       string
 	Password    string
@@ -79,9 +84,13 @@ type User interface {
 	MGetUserProfiles(ctx context.Context, userIDs []int64) (users []*entity.User, err error)
 	ValidateSession(ctx context.Context, sessionKey string) (session *entity.Session, exist bool, err error)
 	GetUserSpaceList(ctx context.Context, userID int64) (spaces []*entity.Space, err error)
+
 	GetUserSpaceIDs(ctx context.Context, userID int64) (spaceIDs []int64, err error)
+	GetUserSpaceRoleList(ctx context.Context, userID int64) (spaceRoles []*UserSpaceRole, err error)
 	CreateUser(ctx context.Context, req *CreateUserRequest, SpaceRole int32) (user *entity.User, err error)
 	GetSpaceUserList(ctx context.Context, spaceID int64) (userInfos []*playground.SpaceUserInfo, err error)
+	GetUserSpaceRole(ctx context.Context, userID, spaceID int64) (roleType int32, exist bool, err error)
+	UpdateUserSpaceRole(ctx context.Context, userID, spaceID int64, roleType int32) error
 }
 
 type SaasUserProvider interface {
