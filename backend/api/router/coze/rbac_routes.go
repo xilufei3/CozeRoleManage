@@ -53,6 +53,7 @@ func RegisterRBACRoutes(h *server.Hertz) {
 		resources := rbac.Group("/resources")
 		{
 			resources.GET("/:resourceId/permissions", coze.GetResourcePermissions) // 获取资源权限详情
+			resources.GET("/agents", coze.GetSpaceAgents)                          // 获取空间下的 Agent 列表
 		}
 
 		// 权限检查

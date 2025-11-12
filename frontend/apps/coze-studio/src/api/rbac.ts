@@ -55,9 +55,10 @@ export interface UserPermissions {
   space_id: string;
   roles: Role[];
   permissions: Record<number, string[]>; // resource_type -> actions
+  detail_permissions?: Permission[]; // 详细权限列表（包含资源ID）
 }
 
-// ========== 角色管理 ==========
+// ---------- 角色管理 ----------
 
 // 创建角色
 export const createRole = async (params: {
@@ -101,7 +102,7 @@ export const listRoles = async (
   return res.data;
 };
 
-// ========== 权限管理 ==========
+// ---------- 权限管理 ----------
 
 // 批量设置角色权限
 export const setRolePermissions = async (
@@ -163,7 +164,7 @@ export const getResourcePermissions = async (
   return res.data;
 };
 
-// ========== 用户角色分配 ==========
+// ---------- 用户角色分配 ----------
 
 // 为用户分配角色
 export const assignRoleToUser = async (
@@ -218,7 +219,7 @@ export const getUserPermissions = async (
   return res.data;
 };
 
-// ========== 权限检查 ==========
+// ---------- 权限检查 ----------
 
 // 单个权限检查
 export const checkPermission = async (params: {
@@ -247,4 +248,85 @@ export const batchCheckPermissions = async (params: {
     params,
   );
   return res.data;
+};
+
+// ---------- 资源管理 ----------
+
+// 获取空间下的资源列表（用于权限分配）
+export interface SpaceResource {
+  res_id?: string;
+  id?: string;
+  name?: string;
+  res_type?: number;
+  res_sub_type?: number;
+  icon?: string;
+  creator_name?: string;
+  creator_avatar?: string;
+}
+
+export const getSpaceResources = async (
+  spaceId: string,
+  resTypeFilter?: number[],
+): Promise<{
+  resource_list: SpaceResource[];
+  has_more: boolean;
+  cursor?: string;
+}> => {
+  try {
+    const res = await axiosInstance.post(
+      '/api/plugin_api/library_resource_list',
+      {
+        space_id: spaceId,
+        res_type_filter: resTypeFilter,
+        size: 100,
+      },
+    );
+
+    // axios 拦截器已经处理过响应，res 就是实际数据
+    // 如果 res 有 resource_list，直接返回 res
+    if (res && 'resource_list' in res) {
+      return res as {
+        resource_list: SpaceResource[];
+        has_more: boolean;
+        cursor?: string;
+      };
+    }
+
+    // 否则返回 res.data
+    return res.data || { resource_list: [], has_more: false };
+  } catch (error) {
+    console.error('[RBAC] 加载资源列表失败:', error);
+    // 如果出错，返回空数据而不是抛出错误
+    return { resource_list: [], has_more: false };
+  }
+};
+
+// Agent 资源接口
+export interface AgentResource {
+  id?: string;
+  name?: string;
+  description?: string;
+}
+
+// 获取空间下的 Agent 列表
+export const getSpaceAgents = async (
+  spaceId: string,
+): Promise<{
+  agents: AgentResource[];
+  total?: number;
+}> => {
+  try {
+    const res = await axiosInstance.get('/api/rbac/resources/agents', {
+      params: { space_id: spaceId },
+    });
+
+    // 返回 agents 列表
+    return {
+      agents: res.data?.agents || [],
+      total: res.data?.total || 0,
+    };
+  } catch (error) {
+    console.error('[RBAC] 加载 Agent 列表失败:', error);
+    return { agents: [], total: 0 };
+  }
 };

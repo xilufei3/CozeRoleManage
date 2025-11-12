@@ -15,12 +15,25 @@
  */
 
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 
+import { useSpaceStore } from '@coze-foundation/space-store';
 import { Tabs, TabPane } from '@coze-arch/coze-design';
+
+import { RoleType } from '../../api/space';
+
+interface SpaceSummary {
+  role_type?: RoleType;
+}
 
 export default function SystemLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const currentSpace = useSpaceStore(
+    state => state.space,
+  ) as SpaceSummary | null;
+  const currentRoleType = currentSpace?.role_type;
+  const isOwner = currentRoleType === RoleType.Owner;
 
   // 从路径中提取当前激活的标签页
   const getActiveKey = () => {
@@ -28,22 +41,32 @@ export default function SystemLayout() {
     const lastPart = pathParts[pathParts.length - 1];
     return lastPart === 'system' ? 'roles' : lastPart;
   };
+  const activeKey = getActiveKey();
 
   const handleTabChange = (key: string) => {
+    if (key === 'identity' && !isOwner) {
+      return;
+    }
     navigate(key);
   };
+
+  useEffect(() => {
+    if (activeKey === 'identity' && !isOwner) {
+      navigate('roles', { replace: true });
+    }
+  }, [activeKey, isOwner, navigate]);
 
   return (
     <div className="h-full flex flex-col bg-white">
       <div className="px-6 pt-6 border-b border-gray-200">
-        <Tabs activeKey={getActiveKey()} onChange={handleTabChange} type="line">
+        <Tabs activeKey={activeKey} onChange={handleTabChange} type="line">
           <TabPane tab="角色管理" itemKey="roles" />
           <TabPane tab="用户管理" itemKey="users" />
-          <TabPane tab="身份管理" itemKey="identity" />
+          {isOwner ? <TabPane tab="身份管理" itemKey="identity" /> : null}
         </Tabs>
       </div>
       <div className="flex-1 overflow-auto">
-        <Outlet />
+        <Outlet context={{ isOwner }} />
       </div>
     </div>
   );

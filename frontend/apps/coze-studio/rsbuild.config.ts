@@ -23,9 +23,16 @@ const API_PROXY_TARGET = `http://localhost:${
   process.env.WEB_SERVER_PORT || 8888
 }/`;
 
+const DEV_SERVER_PORT = Number(
+  process.env.DEV_SERVER_PORT || process.env.PORT || 3000,
+);
+
 const mergedConfig = defineConfig({
   server: {
+    port: DEV_SERVER_PORT,
     strictPort: true,
+    historyApiFallback: true,
+    host: '0.0.0.0',
     proxy: [
       {
         context: ['/api'],
@@ -40,6 +47,14 @@ const mergedConfig = defineConfig({
         changeOrigin: true,
       },
     ],
+  },
+  dev: {
+    hmr: true,
+    client: {
+      port: DEV_SERVER_PORT,
+      host: '0.0.0.0',
+      protocol: 'ws',
+    },
   },
   html: {
     title: '扣子 Studio',

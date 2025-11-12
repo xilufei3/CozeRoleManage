@@ -28,7 +28,7 @@ export function useProjectRole(projectId: string): ProjectRoleType[] {
       })),
     );
 
-  if (!isProjectReady) {
+  if (isProjectReady !== true) {
     throw new Error(
       'useProjectAuth must be used after useInitProjectRole has been completed.',
     );

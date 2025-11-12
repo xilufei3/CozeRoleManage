@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-/* eslint-disable max-lines -- keep entire identity management flow in one file as requested */
-
+import { useOutletContext } from 'react-router-dom';
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
   type ChangeEvent,
+  type ComponentProps,
 } from 'react';
 
 import { useSpaceStore } from '@coze-foundation/space-store';
@@ -35,7 +35,6 @@ import {
   Tag,
   Toast,
   Typography,
-  type ComponentProps,
 } from '@coze-arch/coze-design';
 
 import {
@@ -54,14 +53,18 @@ interface SpaceSummary {
 }
 type TagColor = ComponentProps<typeof Tag>['color'];
 
-const ROLE_META: Record<RoleType, { text: string; color: TagColor }> = {
-  [RoleType.Owner]: { text: 'Owner', color: 'red' },
-  [RoleType.Admin]: { text: 'Admin', color: 'orange' },
-  [RoleType.Member]: { text: 'Member', color: 'blue' },
+interface SystemOutletContext {
+  isOwner: boolean;
+}
+
+const ROLE_META: Record<RoleType, { text: string; color?: TagColor }> = {
+  [RoleType.Owner]: { text: 'Owner', color: 'red' as TagColor },
+  [RoleType.Admin]: { text: 'Admin', color: 'orange' as TagColor },
+  [RoleType.Member]: { text: 'Member', color: 'blue' as TagColor },
 };
-const DEFAULT_ROLE_META: { text: string; color: TagColor } = {
+const DEFAULT_ROLE_META: { text: string; color?: TagColor } = {
   text: '未知',
-  color: 'default',
+  color: undefined,
 };
 
 const getRoleInfo = (roleType?: number) =>
@@ -111,12 +114,10 @@ const useIdentityData = (spaceId: string) => {
 };
 
 interface IdentityTableParams {
-  isOwner: boolean;
   onAdjustIdentity: (user: SpaceUser) => void;
 }
 
 const createIdentityTableColumns = ({
-  isOwner,
   onAdjustIdentity,
 }: IdentityTableParams) => [
   { title: '用户名', dataIndex: 'name', key: 'name', width: 200 },
@@ -139,7 +140,7 @@ const createIdentityTableColumns = ({
         <Button
           type="tertiary"
           size="small"
-          disabled={!isOwner || record.roleType === RoleType.Owner}
+          disabled={record.roleType === RoleType.Owner}
           onClick={() => onAdjustIdentity(record)}
         >
           调整身份
@@ -206,7 +207,6 @@ interface CreateUserModalProps {
   onEmailChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPasswordChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRoleChange: (value: RoleType) => void;
-  isOwner: boolean;
 }
 
 const CreateUserModal = ({
@@ -219,7 +219,6 @@ const CreateUserModal = ({
   onEmailChange,
   onPasswordChange,
   onRoleChange,
-  isOwner,
 }: CreateUserModalProps) => (
   <Modal
     title="创建空间用户"
@@ -229,42 +228,38 @@ const CreateUserModal = ({
     okText="创建"
     cancelText="取消"
   >
-    {isOwner ? (
-      <div className="space-y-3">
-        <div>
-          <Text className="mb-1 block">邮箱</Text>
-          <input
-            className="coze-input coze-input-bordered w-full"
-            value={newEmail}
-            onChange={onEmailChange}
-            placeholder="请输入邮箱"
-          />
-        </div>
-        <div>
-          <Text className="mb-1 block">密码</Text>
-          <input
-            type="password"
-            className="coze-input coze-input-bordered w-full"
-            value={newPassword}
-            onChange={onPasswordChange}
-            placeholder="请输入密码"
-          />
-        </div>
-        <div>
-          <Text className="mb-1 block">初始身份</Text>
-          <Select
-            value={newRole}
-            onChange={value => onRoleChange(value as RoleType)}
-            style={{ width: '100%' }}
-          >
-            <Select.Option value={RoleType.Admin}>Admin</Select.Option>
-            <Select.Option value={RoleType.Member}>Member</Select.Option>
-          </Select>
-        </div>
+    <div className="space-y-3">
+      <div>
+        <Text className="mb-1 block">邮箱</Text>
+        <input
+          className="coze-input coze-input-bordered w-full"
+          value={newEmail}
+          onChange={onEmailChange}
+          placeholder="请输入邮箱"
+        />
       </div>
-    ) : (
-      <Text type="secondary">仅 Owner 可以创建用户</Text>
-    )}
+      <div>
+        <Text className="mb-1 block">密码</Text>
+        <input
+          type="password"
+          className="coze-input coze-input-bordered w-full"
+          value={newPassword}
+          onChange={onPasswordChange}
+          placeholder="请输入密码"
+        />
+      </div>
+      <div>
+        <Text className="mb-1 block">初始身份</Text>
+        <Select
+          value={newRole}
+          onChange={value => onRoleChange(value as RoleType)}
+          style={{ width: '100%' }}
+        >
+          <Select.Option value={RoleType.Admin}>Admin</Select.Option>
+          <Select.Option value={RoleType.Member}>Member</Select.Option>
+        </Select>
+      </div>
+    </div>
   </Modal>
 );
 
@@ -283,11 +278,9 @@ interface CreateModalState {
 
 const useCreateModalState = ({
   spaceId,
-  isOwner,
   loadUsers,
 }: {
   spaceId: string;
-  isOwner: boolean;
   loadUsers: () => Promise<void>;
 }): CreateModalState => {
   const [visible, setVisible] = useState(false);
@@ -318,10 +311,6 @@ const useCreateModalState = ({
       Toast.error('请填写邮箱与密码');
       return;
     }
-    if (!isOwner) {
-      Toast.warning('仅 Owner 可以创建用户');
-      return;
-    }
 
     try {
       await createSpaceUser(spaceId, {
@@ -339,7 +328,7 @@ const useCreateModalState = ({
       Toast.error('创建失败');
       console.error(error);
     }
-  }, [close, isOwner, loadUsers, newEmail, newPassword, newRole, spaceId]);
+  }, [close, loadUsers, newEmail, newPassword, newRole, spaceId]);
 
   return {
     visible,
@@ -367,12 +356,10 @@ interface IdentityRoleModalState {
 
 const useIdentityRoleModalState = ({
   spaceId,
-  isOwner,
   selectedUser,
   loadUsers,
 }: {
   spaceId: string;
-  isOwner: boolean;
   selectedUser: SpaceUser | null;
   loadUsers: () => Promise<void>;
 }): IdentityRoleModalState => {
@@ -397,11 +384,8 @@ const useIdentityRoleModalState = ({
     if (!selectedUser) {
       return false;
     }
-    if (!isOwner) {
-      return false;
-    }
     return selectedUser.roleType !== RoleType.Owner;
-  }, [isOwner, selectedUser]);
+  }, [selectedUser]);
 
   const open = useCallback((user: SpaceUser) => {
     setUpdateRoleType(
@@ -421,10 +405,6 @@ const useIdentityRoleModalState = ({
       Toast.error('请选择用户');
       return;
     }
-    if (!isOwner) {
-      Toast.warning('仅 Owner 可以修改身份');
-      return;
-    }
     if (selectedUser.roleType === RoleType.Owner) {
       Toast.warning('无法修改 Owner 的身份');
       return;
@@ -440,7 +420,7 @@ const useIdentityRoleModalState = ({
       Toast.error(message);
       console.error(error);
     }
-  }, [close, isOwner, loadUsers, selectedUser, spaceId, updateRoleType]);
+  }, [close, loadUsers, selectedUser, spaceId, updateRoleType]);
 
   return {
     visible,
@@ -453,14 +433,13 @@ const useIdentityRoleModalState = ({
   };
 };
 
-const useIdentityManagementController = (spaceId: string, isOwner: boolean) => {
+const useIdentityManagementController = (spaceId: string) => {
   const { users, loading, loadUsers, selectedUser, selectUser } =
     useIdentityData(spaceId);
 
-  const createModal = useCreateModalState({ spaceId, isOwner, loadUsers });
+  const createModal = useCreateModalState({ spaceId, loadUsers });
   const identityModal = useIdentityRoleModalState({
     spaceId,
-    isOwner,
     selectedUser,
     loadUsers,
   });
@@ -476,10 +455,9 @@ const useIdentityManagementController = (spaceId: string, isOwner: boolean) => {
   const tableColumns = useMemo(
     () =>
       createIdentityTableColumns({
-        isOwner,
         onAdjustIdentity: openIdentityModal,
       }),
-    [isOwner, openIdentityModal],
+    [openIdentityModal],
   );
 
   const handleRowClick = useCallback(
@@ -501,12 +479,11 @@ const useIdentityManagementController = (spaceId: string, isOwner: boolean) => {
 };
 
 export default function IdentityManagement() {
+  const { isOwner } = useOutletContext<SystemOutletContext>();
   const currentSpace = useSpaceStore(
     state => state.space,
   ) as SpaceSummary | null;
   const spaceId = currentSpace?.id ?? '';
-  const currentRoleType = currentSpace?.role_type;
-  const isOwner = currentRoleType === RoleType.Owner;
 
   const {
     users,
@@ -516,7 +493,7 @@ export default function IdentityManagement() {
     handleRowClick,
     createModal,
     identityModal,
-  } = useIdentityManagementController(spaceId, isOwner);
+  } = useIdentityManagementController(spaceId);
 
   return (
     <div className="p-6">
@@ -574,7 +551,6 @@ export default function IdentityManagement() {
         onEmailChange={createModal.onEmailChange}
         onPasswordChange={createModal.onPasswordChange}
         onRoleChange={createModal.onRoleChange}
-        isOwner={isOwner}
       />
     </div>
   );

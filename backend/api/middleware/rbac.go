@@ -179,12 +179,11 @@ func RequireAllPermissions(resourceType entity.ResourceType, actions ...entity.A
 	}
 }
 
-// ========== 辅助函数 ==========
+// ---------- 辅助函数 ----------
 
 // getUserIDFromContext 从上下文获取用户ID
 func getUserIDFromContext(c *app.RequestContext) int64 {
-	// TODO: 根据项目实际情况从session或token中获取用户ID
-	// 示例实现：
+	// 从hertz context获取
 	if userID, exists := c.Get("user_id"); exists {
 		if id, ok := userID.(int64); ok {
 			return id
@@ -203,12 +202,18 @@ func getUserIDFromContext(c *app.RequestContext) int64 {
 
 // getSpaceIDFromContext 从上下文或请求获取SpaceID
 func getSpaceIDFromContext(c *app.RequestContext) int64 {
-	// TODO: 根据项目实际情况获取SpaceID
-	// 可能从session、请求参数或路径参数中获取
+	// 从hertz context获取
 	if spaceID, exists := c.Get("space_id"); exists {
 		if id, ok := spaceID.(int64); ok {
 			return id
 		}
+	}
+
+	// 从路径参数获取
+	if spaceIDStr := c.Param("space_id"); spaceIDStr != "" {
+		var spaceID int64
+		fmt.Sscanf(spaceIDStr, "%d", &spaceID)
+		return spaceID
 	}
 
 	// 从请求参数获取
@@ -218,8 +223,12 @@ func getSpaceIDFromContext(c *app.RequestContext) int64 {
 		return spaceID
 	}
 
-	// 从POST body获取（需要解析JSON）
-	// 或从路径参数获取
+	// 从header获取
+	if spaceIDStr := c.GetHeader("X-Space-ID"); len(spaceIDStr) > 0 {
+		var spaceID int64
+		fmt.Sscanf(string(spaceIDStr), "%d", &spaceID)
+		return spaceID
+	}
 
 	return 0
 }

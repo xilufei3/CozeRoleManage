@@ -48,6 +48,7 @@ import {
   type Role,
   type UserPermissions,
 } from '../../api/rbac';
+import { UserPermissionDetailModal } from './components/UserPermissionDetailModal';
 
 const { Title, Text } = Typography;
 
@@ -586,7 +587,7 @@ export default function UserManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Title heading={3}>用户管理</Title>
+        <Title heading={3}>用户身份管理</Title>
         <Text type="secondary">为用户分配角色，管理用户的访问权限</Text>
       </div>
 

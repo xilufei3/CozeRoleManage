@@ -31,6 +31,7 @@ import (
 type rbacServiceImpl struct {
 	roleRepo       repository.RoleRepository
 	permissionRepo repository.PermissionRepository
+	db             *gorm.DB
 }
 
 // NewRBACService 创建RBAC服务实例
@@ -38,10 +39,11 @@ func NewRBACService(db *gorm.DB) RBACService {
 	return &rbacServiceImpl{
 		roleRepo:       repository.NewRoleRepo(db),
 		permissionRepo: repository.NewPermissionRepo(db),
+		db:             db,
 	}
 }
 
-// ========== 角色管理实现 ==========
+// ---------- 角色管理实现 ----------
 
 func (s *rbacServiceImpl) CreateRole(ctx context.Context, req *CreateRoleRequest) (*entity.Role, error) {
 	// 检查角色名是否已存在
@@ -137,7 +139,7 @@ func (s *rbacServiceImpl) ListRoles(ctx context.Context, spaceID int64) ([]*enti
 	return result, nil
 }
 
-// ========== 用户角色分配实现 ==========
+// ---------- 用户角色分配实现 ----------
 
 func (s *rbacServiceImpl) AssignRoleToUser(ctx context.Context, req *AssignRoleRequest) error {
 	// 验证角色是否存在
@@ -214,15 +216,60 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 		return nil, err
 	}
 
-	// 聚合权限（按资源类型）
-	aggregatedPerms := make(map[entity.ResourceType]map[entity.Action]bool)
+	// 聚合权限（按资源类型和资源ID）
+	// 先收集所有资源(resource_id=0)的权限
+	allResourcePerms := make(map[entity.ResourceType]map[entity.Action]bool)
+	// 再收集具体资源的权限
+	specificResourcePerms := make(map[string]map[entity.Action]bool) // key: "resourceType_resourceID"
+
 	for _, perm := range permissions {
 		rt := entity.ResourceType(perm.ResourceType)
+
+		if perm.ResourceID == 0 {
+			// 所有资源的权限
+			if allResourcePerms[rt] == nil {
+				allResourcePerms[rt] = make(map[entity.Action]bool)
+			}
+			for _, action := range perm.Actions {
+				allResourcePerms[rt][entity.Action(action)] = true
+			}
+		} else {
+			// 具体资源的权限
+			key := fmt.Sprintf("%d_%d", rt, perm.ResourceID)
+			if specificResourcePerms[key] == nil {
+				specificResourcePerms[key] = make(map[entity.Action]bool)
+			}
+			for _, action := range perm.Actions {
+				specificResourcePerms[key][entity.Action(action)] = true
+			}
+		}
+	}
+
+	// 聚合权限：所有资源的权限 + 具体资源的权限 取并集
+	aggregatedPerms := make(map[entity.ResourceType]map[entity.Action]bool)
+
+	// 首先添加所有资源的权限
+	for rt, actions := range allResourcePerms {
 		if aggregatedPerms[rt] == nil {
 			aggregatedPerms[rt] = make(map[entity.Action]bool)
 		}
-		for _, action := range perm.Actions {
-			aggregatedPerms[rt][entity.Action(action)] = true
+		for action := range actions {
+			aggregatedPerms[rt][action] = true
+		}
+	}
+
+	// 然后合并具体资源的权限
+	for key, actions := range specificResourcePerms {
+		// 从 key 中解析出 resourceType
+		var rt entity.ResourceType
+		var resID int64
+		fmt.Sscanf(key, "%d_%d", &rt, &resID)
+
+		if aggregatedPerms[rt] == nil {
+			aggregatedPerms[rt] = make(map[entity.Action]bool)
+		}
+		for action := range actions {
+			aggregatedPerms[rt][action] = true
 		}
 	}
 
@@ -246,15 +293,30 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 		roles = append(roles, s.modelToEntity(role))
 	}
 
+	// 转换详细权限列表
+	detailPerms := make([]*entity.Permission, 0, len(permissions))
+	for _, perm := range permissions {
+		detailPerms = append(detailPerms, &entity.Permission{
+			ID:           perm.ID,
+			RoleID:       perm.RoleID,
+			ResourceType: entity.ResourceType(perm.ResourceType),
+			ResourceID:   perm.ResourceID,
+			Actions:      []string(perm.Actions),
+			CreatedAt:    perm.CreatedAt,
+			UpdatedAt:    perm.UpdatedAt,
+		})
+	}
+
 	return &entity.UserPermissions{
-		UserID:      userID,
-		SpaceID:     spaceID,
-		Roles:       roles,
-		Permissions: result,
+		UserID:            userID,
+		SpaceID:           spaceID,
+		Roles:             roles,
+		Permissions:       result,
+		DetailPermissions: detailPerms,
 	}, nil
 }
 
-// ========== 权限管理实现 ==========
+// ---------- 权限管理实现 ----------
 
 func (s *rbacServiceImpl) SetRolePermissions(ctx context.Context, req *SetRolePermissionsRequest) error {
 	// 验证角色是否存在
@@ -263,21 +325,63 @@ func (s *rbacServiceImpl) SetRolePermissions(ctx context.Context, req *SetRolePe
 		return fmt.Errorf("role not found: %w", err)
 	}
 
-	// 批量设置权限
+	// 先删除该角色的所有旧权限
+	if err := s.permissionRepo.DeleteRolePermissions(ctx, req.RoleID); err != nil {
+		return fmt.Errorf("delete old permissions failed: %w", err)
+	}
+
+	// 批量插入新权限
 	for _, perm := range req.Permissions {
+		// 跳过空的权限配置
+		if len(perm.Actions) == 0 {
+			continue
+		}
+
+		// 验证并过滤操作权限
+		validActions := s.validateAndFilterActions(perm.ResourceType, perm.Actions)
+		if len(validActions) == 0 {
+			continue // 如果过滤后没有有效操作，跳过
+		}
+
 		permission := &model.RbacRoleResourcePermission{
 			RoleID:       req.RoleID,
 			ResourceType: int32(perm.ResourceType),
 			ResourceID:   perm.ResourceID,
-			Actions:      model.StringArray(perm.Actions),
+			Actions:      model.StringArray(validActions),
 		}
 
-		if err := s.permissionRepo.SetRolePermissions(ctx, permission); err != nil {
-			return fmt.Errorf("set permission failed: %w", err)
+		// 使用 GORM 的 Create 直接插入（避免重复删除）
+		if err := s.permissionRepo.CreatePermission(ctx, permission); err != nil {
+			return fmt.Errorf("create permission failed: %w", err)
 		}
 	}
 
 	return nil
+}
+
+// validateAndFilterActions 验证并过滤出有效的操作
+func (s *rbacServiceImpl) validateAndFilterActions(resourceType entity.ResourceType, actions []string) []string {
+	validActions := entity.GetResourceTypeActions(resourceType)
+	if len(validActions) == 0 {
+		// 如果资源类型未定义，允许所有操作
+		return actions
+	}
+
+	// 构建有效操作集合
+	validSet := make(map[string]bool)
+	for _, action := range validActions {
+		validSet[string(action)] = true
+	}
+
+	// 过滤出有效的操作
+	filtered := make([]string, 0, len(actions))
+	for _, action := range actions {
+		if validSet[action] {
+			filtered = append(filtered, action)
+		}
+	}
+
+	return filtered
 }
 
 func (s *rbacServiceImpl) SetRoleResourcePermission(ctx context.Context, req *SetResourcePermissionRequest) error {
@@ -331,7 +435,7 @@ func (s *rbacServiceImpl) GetResourcePermissions(ctx context.Context, resourceTy
 	return result, nil
 }
 
-// ========== 权限检查实现 ==========
+// ---------- 权限检查实现 ----------
 
 func (s *rbacServiceImpl) CheckPermission(ctx context.Context, check *entity.PermissionCheck) (bool, error) {
 	// 获取用户的所有角色
@@ -356,13 +460,16 @@ func (s *rbacServiceImpl) CheckPermission(ctx context.Context, check *entity.Per
 	}
 
 	// 检查是否有匹配的权限
+	// 优先级：所有资源(0) > 具体资源
 	for _, perm := range permissions {
 		// 资源类型匹配
 		if entity.ResourceType(perm.ResourceType) != check.ResourceType {
 			continue
 		}
 
-		// 资源ID匹配（0表示所有资源，或者精确匹配）
+		// 资源ID匹配：
+		// 1. resource_id = 0 表示对所有该类型资源有权限
+		// 2. 或者 resource_id 精确匹配
 		if perm.ResourceID != 0 && perm.ResourceID != check.ResourceID {
 			continue
 		}
@@ -370,7 +477,7 @@ func (s *rbacServiceImpl) CheckPermission(ctx context.Context, check *entity.Per
 		// 检查操作权限
 		for _, action := range perm.Actions {
 			if entity.Action(action) == check.Action {
-				return true, nil
+				return true, nil // 找到匹配的权限
 			}
 		}
 	}
@@ -422,7 +529,7 @@ func (s *rbacServiceImpl) GetAccessibleResources(ctx context.Context, req *GetAc
 	return []int64{}, nil
 }
 
-// ========== 辅助方法 ==========
+// ---------- 辅助方法 ----------
 
 func (s *rbacServiceImpl) modelToEntity(role *model.RbacRole) *entity.Role {
 	return &entity.Role{
@@ -451,6 +558,44 @@ func (s *rbacServiceImpl) permissionsToEntity(permissions []*model.RbacRoleResou
 		})
 	}
 	return result
+}
+
+// ---------- 资源查询实现 ----------
+
+// GetSpaceAgents 获取空间下的 Agent 列表
+func (s *rbacServiceImpl) GetSpaceAgents(ctx context.Context, spaceID int64) ([]*AgentBasicInfo, error) {
+	// 查询 single_agent_draft 表获取空间下的所有 Agent
+	var agents []struct {
+		ID          int64
+		AgentID     int64
+		Name        string
+		Description *string
+	}
+
+	err := s.db.WithContext(ctx).
+		Table("single_agent_draft").
+		Select("id, agent_id, name, description").
+		Where("space_id = ? AND deleted_at IS NULL", spaceID).
+		Find(&agents).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("query agents failed: %w", err)
+	}
+
+	result := make([]*AgentBasicInfo, 0, len(agents))
+	for _, agent := range agents {
+		desc := ""
+		if agent.Description != nil {
+			desc = *agent.Description
+		}
+		result = append(result, &AgentBasicInfo{
+			ID:          agent.AgentID, // 使用 agent_id 作为资源 ID
+			Name:        agent.Name,
+			Description: desc,
+		})
+	}
+
+	return result, nil
 }
 
 

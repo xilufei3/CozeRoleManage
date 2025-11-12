@@ -3805,7 +3805,7 @@ table "rbac_role_resource_permission" {
   column "resource_type" {
     null    = false
     type    = int
-    comment = "Resource Type: 4=agent, 6=workflow, 7=knowledge, 5=plugin, 23=database"
+    comment = "Resource Type: 4=agent, 5=plugin, 6=workflow, 7=knowledge, 17=prompt, 23=database"
   }
   column "resource_id" {
     null     = false
