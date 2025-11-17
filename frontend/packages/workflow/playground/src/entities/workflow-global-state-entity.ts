@@ -236,11 +236,33 @@ export class WorkflowGlobalStateEntity extends ConfigEntity<WorkflowGlobalState>
     const isUserType = workflowInfo?.type === WorkFlowType.User;
     const hasSingleEditPermission = !isVcsMode && workflowInfo.creator?.self;
     const hasVcsEditPermission = isVcsMode && workflowInfo.vcsData?.can_edit;
+    // 🔑 RBAC权限检查：无论单人还是多人模式，都检查can_edit字段（后端已注入RBAC权限）
+    const hasRBACEditPermission = workflowInfo.vcsData?.can_edit !== false;
+
+    console.log('[Workflow Global State] 权限判断:', {
+      workflowId,
+      isVcsMode,
+      hasSingleEditPermission,
+      hasVcsEditPermission,
+      hasRBACEditPermission,
+      'vcsData.can_edit': workflowInfo.vcsData?.can_edit,
+      'creator.self': workflowInfo.creator?.self,
+    });
+
     const preview =
       isReadOnly ||
       isGuanFangType ||
       isProjectPreview ||
-      (isUserType && !(hasSingleEditPermission || hasVcsEditPermission));
+      (isUserType && !(hasSingleEditPermission || hasVcsEditPermission)) ||
+      !hasRBACEditPermission; // 🔑 RBAC权限检查优先级最高
+
+    console.log('[Workflow Global State] 最终preview状态:', {
+      preview,
+      isReadOnly,
+      isGuanFangType,
+      isProjectPreview,
+      isUserType,
+    });
 
     const jsonStr = workflowInfo?.schema_json;
     const workflowJSON = (

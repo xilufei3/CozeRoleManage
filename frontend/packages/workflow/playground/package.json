@@ -65,6 +65,7 @@
     "@coze-arch/report-tti": "workspace:*",
     "@coze-arch/responsive-kit": "workspace:*",
     "@coze-arch/web-context": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/biz-tooltip-ui": "workspace:*",
     "@coze-common/chat-uikit": "workspace:*",
     "@coze-common/editor-plugins": "workspace:*",

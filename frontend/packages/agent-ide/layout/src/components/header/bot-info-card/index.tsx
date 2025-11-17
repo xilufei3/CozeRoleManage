@@ -30,11 +30,17 @@ import {
   Tag,
   Popover,
   IconButton,
+  Tooltip,
 } from '@coze-arch/coze-design';
 import { formatDate } from '@coze-arch/bot-utils';
 import { useSpaceStore } from '@coze-arch/bot-studio-store';
 import { IconEditNew } from '@coze-arch/bot-icons';
 import { SpaceType } from '@coze-arch/bot-api/developer_api';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { BotPublishStatus } from '../bot-publish-status';
 
@@ -99,12 +105,22 @@ export const BotInfoCard = ({
   editBotInfoFn,
   deployButton,
 }: BotInfoCardProps) => {
-  const { botInfo, noPublish } = useBotInfoStore(
+  const { botInfo, noPublish, botId } = useBotInfoStore(
     useShallow(state => ({
       botInfo: state,
       noPublish: !state.has_publish,
+      botId: state.botId,
     })),
   );
+
+  // 检查RBAC update权限
+  const hasUpdatePermission = useRBACPermission(
+    RBACResourceType.Agent,
+    botId || '',
+    RBACAction.Update,
+  );
+
+  const canEdit = !isReadonly && hasUpdatePermission !== false;
 
   const triggerContent = (
     <div className="flex items-center gap-2">
@@ -125,16 +141,28 @@ export const BotInfoCard = ({
         {botInfo?.name}
       </Typography.Title>
       {!isReadonly && (
-        <IconButton
-          className="edit-btn"
-          color="secondary"
-          icon={<IconEditNew />}
-          theme="borderless"
-          onClick={() => {
-            editBotInfoFn();
-          }}
-          data-testid="bot.ide.bot_creator.bot-info-edit-create-edit-info-button"
-        />
+        <Tooltip
+          content={
+            !canEdit
+              ? '您没有编辑此Agent的权限'
+              : ''
+          }
+        >
+          <IconButton
+            className="edit-btn"
+            color="secondary"
+            icon={<IconEditNew />}
+            theme="borderless"
+            disabled={!canEdit}
+            onClick={() => {
+              if (!canEdit) {
+                return;
+              }
+              editBotInfoFn();
+            }}
+            data-testid="bot.ide.bot_creator.bot-info-edit-create-edit-info-button"
+          />
+        </Tooltip>
       )}
     </div>
   );

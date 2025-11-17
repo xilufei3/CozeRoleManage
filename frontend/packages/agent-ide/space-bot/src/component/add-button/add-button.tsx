@@ -48,13 +48,11 @@ export const AddButton: React.FC<
 }) => {
   const isReadonly = useBotDetailIsReadonly();
 
-  if (isReadonly) {
-    return null;
-  }
+  // 在只读时，禁用按钮但显示（而不是完全隐藏）
   return (
     <UIButton
       data-testid={BotE2e.BotVariableAddModalAddBtn}
-      disabled={disabled}
+      disabled={disabled || isReadonly}
       style={style}
       className={classNames(s.add, className)}
       type={type || 'tertiary'}

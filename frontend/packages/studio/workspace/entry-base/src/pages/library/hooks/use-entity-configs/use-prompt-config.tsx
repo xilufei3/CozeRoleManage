@@ -34,6 +34,7 @@ import { useModal as useSelectIntelligenceModal } from '@coze-common/biz-compone
 import { usePromptConfiguratorModal } from '@coze-common/prompt-kit-adapter/create-prompt';
 
 import { type UseEntityConfigHook } from './types';
+import { type ResourceInfoWithPermissions } from '../use-resource-permissions';
 
 const { TableAction } = Table;
 
@@ -135,40 +136,76 @@ export const usePromptConfig: UseEntityConfigHook = ({
       target: [ResType.Prompt],
       onItemClick: (record: ResourceInfo) => {
         recordRef.current = record;
-        const canEdit = record.actions?.find(
-          action => action.key === ActionKey.Edit,
-        )?.enable;
+        // 基于RBAC权限判断是否可编辑
+        const itemWithPermissions = record as ResourceInfoWithPermissions;
+        const rbacPerms = itemWithPermissions.rbac_permissions || {};
+        const canEdit = rbacPerms.update !== false;
+
+        // 🐛 调试信息：检查详情页的canEdit参数
+        console.log(
+          `[Prompt Detail] 打开详情页: ${record.res_id} "${record.name}"`,
+          '\n  权限对象:',
+          rbacPerms,
+          '\n  update权限:',
+          rbacPerms.update,
+          '\n  canEdit参数:',
+          canEdit,
+          '\n  传递给Modal的参数:',
+          { mode: 'info', canEdit, editId: record.res_id },
+        );
+
         openCreatePrompt({
           mode: 'info',
           canEdit,
           editId: record.res_id || '',
         });
       },
-      renderActions: (libraryResource: ResourceInfo) => (
-        <TableAction
-          deleteProps={{
-            disabled: !libraryResource.actions?.find(
-              action => action.key === ActionKey.Delete,
-            )?.enable,
-            deleteDesc: I18n.t('prompt_resource_delete_describ'),
-            handler: () => {
-              delPrompt(libraryResource.res_id || '');
-            },
-          }}
-          editProps={{
-            disabled: !libraryResource.actions?.find(
-              action => action.key === ActionKey.Edit,
-            )?.enable,
-            handler: () => {
-              openCreatePrompt({
-                mode: 'edit',
-                editId: libraryResource.res_id || '',
-              });
-            },
-          }}
-          actionList={getCommonActions?.(libraryResource)}
-        />
-      ),
+      renderActions: (libraryResource: ResourceInfo) => {
+        // 类型断言，获取RBAC权限信息
+        const itemWithPermissions =
+          libraryResource as ResourceInfoWithPermissions;
+        const rbacPerms = itemWithPermissions.rbac_permissions || {};
+
+        // 基于RBAC权限判断按钮状态
+        const deleteDisabled = rbacPerms.delete === false;
+        const editDisabled = rbacPerms.update === false;
+
+        // 🐛 调试信息
+        console.log(
+          `[Prompt Action] 资源: ${libraryResource.res_id} "${libraryResource.name}"`,
+          '\n  权限对象:',
+          rbacPerms,
+          '\n  delete权限:',
+          rbacPerms.delete,
+          '\n  update权限:',
+          rbacPerms.update,
+          '\n  删除按钮禁用:',
+          deleteDisabled,
+          '\n  编辑按钮禁用:',
+          editDisabled,
+        );
+
+        return (
+          <TableAction
+            deleteProps={{
+              disabled: deleteDisabled,
+              deleteDesc: I18n.t('prompt_resource_delete_describ'),
+              handler: () => {
+                delPrompt(libraryResource.res_id || '');
+              },
+            }}
+            editProps={{
+              disabled: editDisabled,
+              handler: () => {
+                openCreatePrompt({
+                  mode: 'edit',
+                  editId: libraryResource.res_id || '',
+                });
+              },
+            }}
+          />
+        );
+      },
     },
   };
 };

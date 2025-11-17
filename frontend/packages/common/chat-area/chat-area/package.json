@@ -45,6 +45,7 @@
     "@coze-arch/bot-http": "workspace:*",
     "@coze-arch/bot-utils": "workspace:*",
     "@coze-arch/coze-design": "0.0.6-alpha.346d77",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/chat-area-utils": "workspace:*",
     "@coze-common/chat-hooks": "workspace:*",
     "@coze-common/chat-uikit": "workspace:*",

@@ -44,6 +44,7 @@
     "@coze-arch/bot-tea": "workspace:*",
     "@coze-arch/coze-design": "0.0.6-alpha.346d77",
     "@coze-arch/i18n": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/editor-plugins": "workspace:*",
     "@coze-editor/editor": "0.1.0-alpha.dd871b",
     "@coze-foundation/local-storage": "workspace:*",

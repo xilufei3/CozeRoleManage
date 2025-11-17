@@ -331,26 +331,43 @@ export const BotCard: React.FC<BotCardProps> = ({
                           ) : null}
                           {extraMenu}
                           {/* Delete bot */}
-                          <Tooltip
-                            position="left"
-                            trigger={can_delete ? 'custom' : 'hover'}
-                            content={I18n.t(
-                              'project_delete_permission_tooltips',
-                            )}
-                          >
-                            <Menu.Item
-                              type="danger"
-                              disabled={!can_delete}
-                              onClick={() => {
-                                if (!name || !type) {
-                                  return;
+                          {(() => {
+                            // 获取RBAC权限（从intelligenceInfo中）
+                            const rbacPermissions = (intelligenceInfo as any)
+                              .rbac_permissions;
+                            const hasDeletePermission =
+                              rbacPermissions?.delete !== false;
+                            // 综合判断：需要同时满足 can_delete（业务权限）和 RBAC delete 权限
+                            const canDeleteBot =
+                              can_delete && hasDeletePermission;
+
+                            return (
+                              <Tooltip
+                                position="left"
+                                trigger={canDeleteBot ? 'custom' : 'hover'}
+                                content={
+                                  !canDeleteBot
+                                    ? '您没有删除此Agent的权限'
+                                    : I18n.t(
+                                        'project_delete_permission_tooltips',
+                                      )
                                 }
-                                onDelete?.({ name, id, type });
-                              }}
-                            >
-                              <span>{I18n.t('Delete')}</span>
-                            </Menu.Item>
-                          </Tooltip>
+                              >
+                                <Menu.Item
+                                  type="danger"
+                                  disabled={!canDeleteBot}
+                                  onClick={() => {
+                                    if (!name || !type || !canDeleteBot) {
+                                      return;
+                                    }
+                                    onDelete?.({ name, id, type });
+                                  }}
+                                >
+                                  <span>{I18n.t('Delete')}</span>
+                                </Menu.Item>
+                              </Tooltip>
+                            );
+                          })()}
                         </Menu.SubMenu>
                       }
                     >

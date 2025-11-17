@@ -42,6 +42,7 @@ import { WorkspaceEmpty } from '@/components/workspace-empty';
 import { type ListData, type BaseLibraryPageProps } from './types';
 import { useGetColumns } from './hooks/use-columns';
 import { useCachedQueryParams } from './hooks/use-cached-query-params';
+import { useResourcesWithPermissions } from './hooks/use-resource-permissions';
 import {
   eventLibraryType,
   getScopeOptions,
@@ -107,6 +108,11 @@ export const BaseLibraryPage = forwardRef<
     useImperativeHandle(ref, () => ({
       reloadList: listResp.reload,
     }));
+
+    // 注入RBAC权限信息并过滤无read权限的资源
+    const resourcesWithPermissions = useResourcesWithPermissions(
+      listResp.data?.list,
+    );
 
     const columns = useGetColumns({
       entityConfigs,
@@ -253,7 +259,7 @@ export const BaseLibraryPage = forwardRef<
             offsetY={178}
             tableProps={{
               loading: listResp.loading,
-              dataSource: listResp.data?.list,
+              dataSource: resourcesWithPermissions,
               columns,
               // Click on the whole line
               onRow: (record?: ResourceInfo) => {

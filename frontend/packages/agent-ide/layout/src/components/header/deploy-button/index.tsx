@@ -16,12 +16,19 @@
 
 import { Fragment } from 'react';
 
+import { useShallow } from 'zustand/react/shallow';
 import { usePageRuntimeStore } from '@coze-studio/bot-detail-store/page-runtime';
+import { useBotInfoStore } from '@coze-studio/bot-detail-store/bot-info';
 import { I18n } from '@coze-arch/i18n';
 import { IconCozCheckMarkCircleFillPalette } from '@coze-arch/coze-design/icons';
 import { Tooltip } from '@coze-arch/coze-design';
 import { type Type } from '@coze-arch/bot-semi/Button';
 import { BotDebugButton } from '@coze-agent-ide/space-bot/component';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { useDeployService } from './hooks/service';
 
@@ -48,12 +55,30 @@ export const DeployButton: React.FC<DeployButtonProps> = props => {
   const { handlePublish } = useDeployService();
 
   const hasUnpublishChange = usePageRuntimeStore(s => s.hasUnpublishChange);
+  const { botId } = useBotInfoStore(
+    useShallow(state => ({
+      botId: state.botId,
+    })),
+  );
+
+  // 检查RBAC publish权限
+  const hasPublishPermission = useRBACPermission(
+    RBACResourceType.Agent,
+    botId || '',
+    RBACAction.Publish,
+  );
 
   const showChangeTip = hasUnpublishChange;
   return (
     <DeployButtonUI
       onClick={handlePublish}
       showChangeTip={showChangeTip}
+      disabled={hasPublishPermission === false}
+      tooltip={
+        hasPublishPermission === false
+          ? '您没有发布此Agent的权限'
+          : undefined
+      }
       {...props}
     />
   );

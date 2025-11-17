@@ -28,6 +28,11 @@ import { reporter } from '@coze-arch/logger';
 import { I18n } from '@coze-arch/i18n';
 import { typeSafeJSONParse } from '@coze-arch/bot-utils';
 import { Button, Space } from '@coze-arch/coze-design';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { WorkflowPlayground } from './workflow-playground';
 import {
@@ -92,9 +97,23 @@ export function useWorkflowPlayground(props?: UseWorkflowPlaygroundProps) {
 
   const isNodeLogNeedAsync = true;
 
+  // 检查RBAC execute权限（用于运行按钮）
+  const hasExecutePermission = useRBACPermission(
+    RBACResourceType.Workflow,
+    initConfig?.workflowId || '',
+    RBACAction.Execute,
+  );
+
   useEffect(() => {
     propsRef.current = props;
   }, [props]);
+
+  useEffect(() => {
+    console.log('[Workflow TestRun RBAC]', {
+      workflowId: initConfig?.workflowId,
+      hasExecutePermission,
+    });
+  }, [initConfig?.workflowId, hasExecutePermission]);
 
   /** Process Component */
   const workflowComp = useMemo(() => {
@@ -214,6 +233,9 @@ export function useWorkflowPlayground(props?: UseWorkflowPlaygroundProps) {
       return null;
     }
 
+    // 计算运行按钮是否应该禁用
+    const runDisabled = isRunning || hasExecutePermission === false;
+
     return (
       <Space>
         {testRunCount > 0 ? (
@@ -246,7 +268,12 @@ export function useWorkflowPlayground(props?: UseWorkflowPlaygroundProps) {
         <Button
           color="highlight"
           loading={isRunning}
+          disabled={runDisabled}
           onClick={() => {
+            if (hasExecutePermission === false) {
+              console.log('[Workflow TestRun] ✋ RBAC无execute权限，禁止运行');
+              return;
+            }
             propsRef.current?.onTriggerTestRun?.();
             workflowRef.current?.triggerTestRun();
           }}
@@ -255,7 +282,7 @@ export function useWorkflowPlayground(props?: UseWorkflowPlaygroundProps) {
         </Button>
       </Space>
     );
-  }, [workflowComp, testRunCount, isRunning, testResultVisible]);
+  }, [workflowComp, testRunCount, isRunning, testResultVisible, hasExecutePermission]);
 
   return {
     init: (config?: WorkflowPlaygroundInitConfig, force?: boolean) => {

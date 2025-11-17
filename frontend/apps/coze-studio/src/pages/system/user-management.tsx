@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useSpaceStore } from '@coze-foundation/space-store';
+import { useUserInfo } from '@coze-foundation/account-adapter';
 import { IconCozEdit } from '@coze-arch/coze-design/icons';
 import {
   Button,
@@ -37,17 +38,20 @@ import {
   getUserPermissions,
 } from '@/api/rbac';
 import type { Role, UserPermissions } from '@/api/rbac';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import { UserPermissionDetailModal } from './components/UserPermissionDetailModal';
 
 const { Title, Text } = Typography;
 
-// 模拟用户数据（实际项目中应该从API获取）
-const MOCK_USERS = [
-  { id: '1', name: 'Admin User', email: 'admin@example.com' },
-  { id: '2', name: 'Test User', email: 'test@example.com' },
-  { id: '3', name: 'Guest User', email: 'guest@example.com' },
-];
+// 用户类型定义
+interface SpaceMember {
+  id: string;
+  name: string;
+  email?: string;
+  user_id?: string;
+  nick_name?: string;
+}
 
 // 用户角色分配模态框
 function UserRoleAssignModal({
@@ -98,10 +102,11 @@ function UserRoleAssignModal({
 }
 
 // 使用 hooks 封装业务逻辑
-function useUserManagement(spaceId: string, users: typeof MOCK_USERS) {
+function useUserManagement(spaceId: string, userId: string) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [userRoles, setUserRoles] = useState<Record<string, Role[]>>({});
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const loadRoles = useCallback(async () => {
     if (!spaceId) {
@@ -117,46 +122,53 @@ function useUserManagement(spaceId: string, users: typeof MOCK_USERS) {
     }
   }, [spaceId]);
 
-  const loadAllUserRoles = useCallback(async () => {
-    if (!spaceId) {
+  const loadUserRoles = useCallback(async () => {
+    if (!spaceId || !userId) {
       return;
     }
 
     setLoading(true);
     try {
-      const rolesMap: Record<string, Role[]> = {};
-      for (const user of users) {
-        try {
-          const data = await getUserRoles(user.id, spaceId);
-          rolesMap[user.id] = data?.roles || [];
-        } catch (error) {
-          console.error(`Failed to load roles for user ${user.id}`, error);
-          rolesMap[user.id] = [];
-        }
-      }
-      setUserRoles(rolesMap);
+      const data = await getUserRoles(userId, spaceId);
+      setUserRoles({ [userId]: data?.roles || [] });
     } catch (error) {
-      console.error('加载用户角色失败', error);
+      console.error(`Failed to load roles for user ${userId}`, error);
+      setUserRoles({ [userId]: [] });
     } finally {
       setLoading(false);
     }
-  }, [spaceId, users]);
+  }, [spaceId, userId]);
 
+  // 只在初始化时加载一次
   useEffect(() => {
-    loadRoles();
-    loadAllUserRoles();
-  }, [loadRoles, loadAllUserRoles]);
+    if (!initialized && spaceId && userId) {
+      loadRoles();
+      loadUserRoles();
+      setInitialized(true);
+    }
+  }, [initialized, spaceId, userId, loadRoles, loadUserRoles]);
 
-  return { roles, userRoles, loading, loadAllUserRoles };
+  return { roles, userRoles, loading, loadUserRoles };
 }
 
 // 表格列配置
 function useUserColumns(
   userRoles: Record<string, Role[]>,
-  onAssignRoles: (user: (typeof MOCK_USERS)[0]) => void,
-  onViewPermissions: (user: (typeof MOCK_USERS)[0]) => void,
+  onAssignRoles: (user: SpaceMember) => void,
+  onViewPermissions: (user: SpaceMember) => void,
 ) {
   return [
+    {
+      title: '用户ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 180,
+      render: (id: string) => (
+        <Text copyable className="font-mono text-xs">
+          {id}
+        </Text>
+      ),
+    },
     {
       title: '用户名',
       dataIndex: 'name',
@@ -167,12 +179,12 @@ function useUserColumns(
       title: '邮箱',
       dataIndex: 'email',
       key: 'email',
-      width: 250,
+      width: 200,
     },
     {
       title: '角色',
       key: 'roles',
-      render: (_: unknown, record: (typeof MOCK_USERS)[0]) => {
+      render: (_: unknown, record: SpaceMember) => {
         const userRoleList = userRoles[record.id] || [];
         return (
           <Space wrap>
@@ -193,7 +205,7 @@ function useUserColumns(
       title: '操作',
       key: 'action',
       width: 220,
-      render: (_: unknown, record: (typeof MOCK_USERS)[0]) => (
+      render: (_: unknown, record: SpaceMember) => (
         <Space>
           <Button
             type="tertiary"
@@ -217,27 +229,43 @@ function useUserColumns(
 }
 
 export default function UserManagement() {
-  const [users] = useState(MOCK_USERS);
   const currentSpace = useSpaceStore(state => state.space);
   const spaceId = currentSpace?.id || '';
+  const userInfo = useUserInfo();
 
-  const { roles, userRoles, loading, loadAllUserRoles } = useUserManagement(
+  // 只传递基本类型，避免对象引用导致的无限循环
+  const userId = userInfo?.user_id_str || '';
+  const userName = userInfo?.nick_name || userInfo?.user_name || '当前用户';
+  const userEmail = userInfo?.email || '';
+
+  const { roles, userRoles, loading, loadUserRoles } = useUserManagement(
     spaceId,
-    users,
+    userId,
   );
+
+  // 直接在组件中构建用户列表，避免useEffect循环
+  const users: SpaceMember[] = userId
+    ? [
+        {
+          id: userId,
+          name: userName,
+          email: userEmail,
+          user_id: userId,
+          nick_name: userName,
+        },
+      ]
+    : [];
 
   const [isAssignModalVisible, setIsAssignModalVisible] = useState(false);
   const [isPermissionModalVisible, setIsPermissionModalVisible] =
     useState(false);
-  const [selectedUser, setSelectedUser] = useState<
-    (typeof MOCK_USERS)[0] | null
-  >(null);
+  const [selectedUser, setSelectedUser] = useState<SpaceMember | null>(null);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [currentUserPermission, setCurrentUserPermission] =
     useState<UserPermissions | null>(null);
 
   // 打开分配角色对话框
-  const showAssignModal = (user: (typeof MOCK_USERS)[0]) => {
+  const showAssignModal = (user: SpaceMember) => {
     setSelectedUser(user);
     const currentRoles = userRoles[user.id] || [];
     setSelectedRoleIds(currentRoles.map(r => r.id));
@@ -275,7 +303,12 @@ export default function UserManagement() {
 
       Toast.success('角色分配成功');
       setIsAssignModalVisible(false);
-      loadAllUserRoles();
+      loadUserRoles();
+
+      // 🔑 触发权限重新加载（重要！）
+      // 这会让Layout组件重新加载权限，更新全局权限数据
+      triggerRBACReload();
+      console.log('[UserManagement] 角色分配成功，触发权限刷新');
     } catch (error) {
       Toast.error('角色分配失败');
       console.error(error);
@@ -283,7 +316,7 @@ export default function UserManagement() {
   };
 
   // 查看用户权限
-  const showUserPermissions = async (user: (typeof MOCK_USERS)[0]) => {
+  const showUserPermissions = async (user: SpaceMember) => {
     try {
       const permissions = await getUserPermissions(user.id, spaceId);
       setCurrentUserPermission(permissions);

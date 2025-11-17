@@ -31,6 +31,9 @@
       "path": "../../../arch/logger/tsconfig.build.json"
     },
     {
+      "path": "../../auth/tsconfig.build.json"
+    },
+    {
       "path": "../chat-core/tsconfig.build.json"
     },
     {

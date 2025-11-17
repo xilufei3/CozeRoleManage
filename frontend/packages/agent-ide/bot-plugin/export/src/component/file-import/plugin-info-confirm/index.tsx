@@ -37,6 +37,7 @@ import { FileBizType, IconType } from '@coze-arch/bot-api/developer_api';
 import { DeveloperApi, PluginDevelopApi } from '@coze-arch/bot-api';
 import { PictureUpload } from '@coze-common/biz-components/picture-upload';
 import { type OauthTccOpt } from '@coze-studio/plugin-shared';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import { getRegisterInfo } from '../utils';
 import { ERROR_CODE, INITIAL_PLUGIN_REPORT_PARAMS } from '../const';
@@ -164,6 +165,10 @@ export const PluginInfoConfirm: React.FC<PluginInfoConfirmProps> = props => {
       );
 
       UIToast.success(I18n.t('plugin_imported_successfully'));
+
+      // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+      triggerRBACReload();
+      console.log('[Plugin Create (Import)] 触发RBAC权限刷新');
 
       onCancel?.();
       await onSuccess?.({ plugin_id: data?.plugin_id });

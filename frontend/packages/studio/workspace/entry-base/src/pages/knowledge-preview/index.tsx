@@ -15,6 +15,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom';
+import { useMemo } from 'react';
 
 import qs from 'qs';
 import { KnowledgeParamsStoreProvider } from '@coze-data/knowledge-stores';
@@ -30,6 +31,13 @@ import {
   BizWorkflowKnowledgeIDE,
 } from '@coze-data/knowledge-ide-adapter';
 import { useSpaceStore } from '@coze-arch/bot-studio-store';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
+
+import { KnowledgeRBACWrapper } from './rbac-wrapper';
 
 export const KnowledgePreviewPage = () => {
   const { dataset_id, space_id } = useParams();
@@ -56,6 +64,7 @@ export const KnowledgePreviewPage = () => {
   };
   const navigate = useNavigate();
   const spaceID = useSpaceStore(store => store.space.id);
+
   return (
     <KnowledgeParamsStoreProvider
       params={{ ...params, spaceID }}
@@ -77,19 +86,21 @@ export const KnowledgePreviewPage = () => {
           ),
       }}
     >
-      {(() => {
-        if (params.biz === 'agentIDE') {
-          return <BizAgentKnowledgeIDE />;
-        }
-        if (params.biz === 'workflow') {
-          return <BizWorkflowKnowledgeIDE />;
-        }
-        if (params.biz === 'project') {
-          return <BizProjectKnowledgeIDE />;
-        }
-        // Default'library'
-        return <BizLibraryKnowledgeIDE />;
-      })()}
+      <KnowledgeRBACWrapper datasetId={params.datasetID}>
+        {(() => {
+          if (params.biz === 'agentIDE') {
+            return <BizAgentKnowledgeIDE />;
+          }
+          if (params.biz === 'workflow') {
+            return <BizWorkflowKnowledgeIDE />;
+          }
+          if (params.biz === 'project') {
+            return <BizProjectKnowledgeIDE />;
+          }
+          // Default'library'
+          return <BizLibraryKnowledgeIDE />;
+        })()}
+      </KnowledgeRBACWrapper>
     </KnowledgeParamsStoreProvider>
   );
 };

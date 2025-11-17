@@ -39,6 +39,8 @@ export const AddButton: FC<AddButtonProps> = ({
 }) => {
   const readonly = useBotDetailIsReadonly();
 
+  // 如果 enableAutoHidden 为 true，在只读时完全隐藏（用于添加按钮）
+  // 否则，在只读时禁用按钮但显示（用于编辑按钮）
   if (readonly && enableAutoHidden) {
     return null;
   }
@@ -58,7 +60,7 @@ export const AddButton: FC<AddButtonProps> = ({
           onClick={onClick}
           size="small"
           color="secondary"
-          disabled={!!disabled}
+          disabled={!!disabled || readonly}
           data-testid={restProps['data-testid']}
         />
       </div>

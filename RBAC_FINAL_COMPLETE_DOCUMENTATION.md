@@ -104,6 +104,43 @@ CREATE TABLE rbac_role_resource_permission (
 );
 ```
 
+#### 4. rbac_user_resource_permission - 用户资源权限表 🆕
+
+**用途**:
+- 创建资源时自动给创建者分配权限
+- 复制资源时继承原资源的权限
+- 避免用户看不到自己创建的资源的问题
+
+```sql
+CREATE TABLE IF NOT EXISTS `rbac_user_resource_permission` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `user_id` varchar(255) NOT NULL COMMENT 'User ID',
+  `space_id` bigint unsigned NOT NULL COMMENT 'Space ID',
+  `resource_type` int NOT NULL COMMENT 'Resource Type: 4=agent, 5=plugin, 6=workflow, 7=knowledge, 17=prompt, 23=database',
+  `resource_id` varchar(255) NOT NULL COMMENT 'Resource ID',
+  `actions` json NOT NULL COMMENT 'Action Array: ["read","update","delete","execute","publish","manage","query","install"]',
+  `created_at` bigint unsigned NOT NULL COMMENT 'Creation Time (Milliseconds)',
+  `updated_at` bigint unsigned NOT NULL COMMENT 'Update Time (Milliseconds)',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_space` (`user_id`, `space_id`),
+  KEY `idx_space_resource` (`space_id`, `resource_type`, `resource_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User Resource Permission Table';
+```
+
+**字段说明**:
+- `user_id`: 用户ID（字符串类型，因为可能是长ID）
+- `space_id`: 空间ID
+- `resource_type`: 资源类型（4=Agent, 5=Plugin, 6=Workflow, 7=Knowledge, 17=Prompt, 23=Database）
+- `resource_id`: 资源ID（字符串类型）
+- `actions`: 权限操作的JSON数组
+- `created_at`/`updated_at`: 时间戳（毫秒）
+
+**索引**:
+- `idx_user_space`: 按用户和空间快速查找用户的所有权限
+- `idx_space_resource`: 按空间和资源快速查找资源的所有权限
+
+**Schema定义文件**: `docker/atlas/opencoze_latest_schema.hcl` (第3851-3908行)
+
 ### 资源类型定义
 
 来自 `backend/domain/rbac/entity/constants.go`:
@@ -131,6 +168,54 @@ const (
 | Knowledge (7) | create, read, update, delete, manage |
 | Prompt (17) | create, read, update, delete |
 | Database (23) | create, read, update, delete, query |
+
+### 数据库表初始化
+
+#### 开发环境
+
+**表已通过以下方式创建**（已执行 ✅）:
+```bash
+# 直接在MySQL容器中执行
+docker exec -it <mysql容器ID> mysql -ucoze -pcoze123 opencoze
+# 然后执行 CREATE_RBAC_USER_PERMISSION_TABLE.sql 中的SQL
+```
+
+**验证表创建成功**:
+```sql
+mysql> SHOW TABLES LIKE 'rbac%';
++-------------------------------+
+| Tables_in_opencoze (rbac%)    |
++-------------------------------+
+| rbac_role                     |
+| rbac_role_resource_permission |
+| rbac_user_resource_permission | ← 新表
+| rbac_user_role                |
++-------------------------------+
+4 rows in set (0.00 sec)
+```
+
+#### 生产环境
+
+**Schema定义文件**:
+- `docker/atlas/opencoze_latest_schema.hcl` (第3851-3908行) - 包含完整的表定义
+- 使用Atlas工具进行数据库迁移
+
+**手动创建SQL**:
+```sql
+CREATE TABLE IF NOT EXISTS `rbac_user_resource_permission` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(255) NOT NULL,
+  `space_id` bigint unsigned NOT NULL,
+  `resource_type` int NOT NULL,
+  `resource_id` varchar(255) NOT NULL,
+  `actions` json NOT NULL,
+  `created_at` bigint unsigned NOT NULL,
+  `updated_at` bigint unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_space` (`user_id`, `space_id`),
+  KEY `idx_space_resource` (`space_id`, `resource_type`, `resource_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
 
 ### 核心服务实现
 
@@ -175,6 +260,251 @@ func (s *rbacServiceImpl) CheckPermission(ctx context.Context, check *entity.Per
     //    - resource_id = xxx 表示对特定资源有权限
 }
 ```
+
+##### 4. 创建资源时自动分配权限 🆕
+
+**问题**: 用户创建资源后，对该资源没有任何权限（包括read），导致看不到自己创建的资源
+
+**解决方案**: 在所有资源创建API中，自动给创建者分配完整权限
+
+**实现**:
+
+```go
+// backend/domain/rbac/service/rbac_impl.go
+
+// AssignCreatorPermissions 给资源创建者分配所有权限
+func (s *rbacServiceImpl) AssignCreatorPermissions(
+    ctx context.Context,
+    userID string,
+    spaceID int64,
+    resourceType int,
+    resourceID string,
+) error {
+    // 根据资源类型确定权限列表
+    actions := s.getDefaultActionsForResourceType(resourceType)
+
+    permission := &model.RbacUserResourcePermission{
+        UserID:       userID,
+        SpaceID:      spaceID,
+        ResourceType: resourceType,
+        ResourceID:   resourceID,
+        Actions:      actions,
+    }
+
+    return s.permissionRepo.CreateUserResourcePermission(ctx, permission)
+}
+
+// getDefaultActionsForResourceType 获取资源类型的默认权限列表
+func (s *rbacServiceImpl) getDefaultActionsForResourceType(resourceType int) model.StringArray {
+    switch resourceType {
+    case 4:  // Agent
+        return model.StringArray{"read", "update", "delete", "execute"}
+    case 5:  // Plugin
+        return model.StringArray{"read", "update", "delete", "execute", "publish", "install"}
+    case 6:  // Workflow
+        return model.StringArray{"read", "update", "delete", "execute", "publish"}
+    case 7:  // Knowledge
+        return model.StringArray{"read", "update", "delete", "manage", "query"}
+    case 17: // Prompt
+        return model.StringArray{"read", "update", "delete"}
+    case 23: // Database
+        return model.StringArray{"read", "update", "delete", "query"}
+    default:
+        return model.StringArray{"read", "update", "delete"}
+    }
+}
+```
+
+**已集成的创建API** (8个):
+
+| 资源 | 文件 | 函数 | ResourceType |
+|------|------|------|--------------|
+| Workflow | `application/workflow/workflow.go` | `CreateWorkflow` | 6 |
+| Plugin | `application/plugin/registration.go` | `RegisterPluginMeta` | 5 |
+| Plugin | `application/plugin/registration.go` | `RegisterPlugin` | 5 |
+| Knowledge | `application/knowledge/knowledge.go` | `CreateKnowledge` | 7 |
+| Prompt | `application/prompt/prompt.go` | `createPromptResource` | 17 |
+| Database | `application/memory/database.go` | `AddDatabase` | 23 |
+| Agent | `application/singleagent/create.go` | `CreateSingleAgentDraft` | 4 |
+| Workflow(复制) | `application/workflow/workflow.go` | `copyWorkflow` | 6 |
+
+**调用示例** (Workflow创建):
+```go
+// backend/application/workflow/workflow.go - CreateWorkflow
+
+id, err := GetWorkflowDomainSVC().Create(ctx, wf)
+if err != nil {
+    return nil, err
+}
+
+// 🔑 自动给创建者分配所有权限
+if apprbac.RBACService != nil {
+    err = apprbac.RBACService.AssignCreatorPermissions(
+        ctx,
+        strconv.FormatInt(uID, 10),
+        spaceID,
+        6, // ResourceTypeWorkflow
+        strconv.FormatInt(id, 10),
+    )
+    if err != nil {
+        logs.CtxErrorf(ctx, "[RBAC] ❌ Failed to assign creator permissions for workflow %d: %v", id, err)
+    } else {
+        logs.CtxInfof(ctx, "[RBAC] ✅ Successfully assigned creator permissions for workflow %d to user %d", id, uID)
+    }
+}
+```
+
+**日志输出**:
+```
+[RBAC] Attempting to assign creator permissions for workflow 7571521042695323648, apprbac.RBACService != nil: true
+[RBAC] Calling AssignCreatorPermissions for workflow 7571521042695323648, user 7568918439524302848, space 7568918439532691456
+[RBAC] ✅ Successfully assigned creator permissions for workflow 7571521042695323648 to user 7568918439524302848
+```
+
+##### 5. 复制资源时继承权限 🆕
+
+**实现**:
+
+```go
+// backend/domain/rbac/service/rbac_impl.go
+
+// CopyResourcePermissions 复制资源的权限到新资源
+func (s *rbacServiceImpl) CopyResourcePermissions(
+    ctx context.Context,
+    sourceResourceType int,
+    sourceResourceID string,
+    targetResourceID string,
+    spaceID int64,
+) error {
+    // 1. 获取源资源的所有用户权限
+    sourcePermissions, err := s.permissionRepo.GetUserPermissionsByResource(ctx, spaceID, sourceResourceType, sourceResourceID)
+    if err != nil {
+        return fmt.Errorf("failed to get source resource permissions: %w", err)
+    }
+
+    // 2. 为每个用户在新资源上创建相同的权限
+    for _, perm := range sourcePermissions {
+        newPermission := &model.RbacUserResourcePermission{
+            UserID:       perm.UserID,
+            SpaceID:      spaceID,
+            ResourceType: sourceResourceType,
+            ResourceID:   targetResourceID,
+            Actions:      perm.Actions,
+        }
+
+        s.permissionRepo.CreateUserResourcePermission(ctx, newPermission)
+    }
+
+    return nil
+}
+```
+
+**使用场景**: Workflow复制
+```go
+// backend/application/workflow/workflow.go - copyWorkflow
+
+wf, err := GetWorkflowDomainSVC().CopyWorkflow(ctx, workflowID, policy)
+if err != nil {
+    return nil, err
+}
+
+// 🔑 复制原workflow的权限到新workflow
+if apprbac.RBACService != nil {
+    err = apprbac.RBACService.CopyResourcePermissions(
+        ctx,
+        6, // ResourceTypeWorkflow
+        strconv.FormatInt(workflowID, 10),
+        strconv.FormatInt(wf.ID, 10),
+        wf.SpaceID,
+    )
+    if err != nil {
+        logs.CtxErrorf(ctx, "Failed to copy permissions from workflow %d to %d: %v", workflowID, wf.ID, err)
+    } else {
+        logs.CtxInfof(ctx, "Successfully copied permissions from workflow %d to %d", workflowID, wf.ID)
+    }
+}
+```
+
+##### 6. Workflow只读模式集成RBAC 🆕
+
+**问题**: 没有update权限的用户打开workflow时，应该进入只读模式（无法编辑节点、保存等）
+
+**解决方案**: 后端在GetCanvasInfo API中检查RBAC权限，前端根据权限进入只读模式
+
+**后端实现**:
+```go
+// backend/application/workflow/workflow.go - GetCanvasInfo
+
+// 🔑 检查RBAC update权限，用于判断用户是否可以编辑workflow
+currentUserID := ctxutil.MustGetUIDFromCtx(ctx)
+spaceID := mustParseInt64(req.GetSpaceID())
+workflowID := mustParseInt64(req.GetWorkflowID())
+
+hasRBACUpdatePermission := true // 默认为true，降级策略
+if apprbac.RBACService != nil {
+    check := &rbacEntity.PermissionCheck{
+        UserID:       currentUserID,
+        SpaceID:      spaceID,
+        ResourceType: 6, // ResourceTypeWorkflow
+        ResourceID:   workflowID,
+        Action:       "update",
+    }
+    hasPermission, err := apprbac.RBACService.CheckPermission(ctx, check)
+    if err != nil {
+        logs.CtxErrorf(ctx, "Failed to check RBAC update permission for workflow %d: %v", workflowID, err)
+    } else {
+        hasRBACUpdatePermission = hasPermission
+        logs.CtxInfof(ctx, "RBAC update permission for workflow %d, user %d: %v", workflowID, currentUserID, hasPermission)
+    }
+}
+
+// 在VcsData中设置CanEdit字段
+canvasData := &workflow.CanvasData{
+    Workflow: &workflow.Workflow{
+        // ... 其他字段
+    },
+    VcsData: &workflow.VCSCanvasData{
+        SubmitCommitID: wf.CommitID,
+        DraftCommitID:  wf.CommitID,
+        Type:           vcsType,
+        CanEdit:        hasRBACUpdatePermission, // 🔑 添加RBAC编辑权限
+    },
+}
+```
+
+**前端实现**:
+```typescript
+// frontend/packages/workflow/playground/src/entities/workflow-global-state-entity.ts
+
+const hasSingleEditPermission = !isVcsMode && workflowInfo.creator?.self;
+const hasVcsEditPermission = isVcsMode && workflowInfo.vcsData?.can_edit;
+
+// 🔑 RBAC权限检查：无论单人还是多人模式，都检查can_edit字段（后端已注入RBAC权限）
+const hasRBACEditPermission = workflowInfo.vcsData?.can_edit !== false;
+
+console.log('[Workflow Global State] 权限判断:', {
+  workflowId,
+  isVcsMode,
+  hasSingleEditPermission,
+  hasVcsEditPermission,
+  hasRBACEditPermission,
+  'vcsData.can_edit': workflowInfo.vcsData?.can_edit,
+  'creator.self': workflowInfo.creator?.self,
+});
+
+const preview =
+  isReadOnly ||
+  isGuanFangType ||
+  isProjectPreview ||
+  (isUserType && !(hasSingleEditPermission || hasVcsEditPermission)) ||
+  !hasRBACEditPermission; // 🔑 RBAC权限检查优先级最高
+```
+
+**效果**:
+- ✅ 无update权限 → `vcsData.can_edit = false` → workflow进入preview（只读）模式
+- ✅ 单人模式和多人模式都生效
+- ✅ 与member角色的行为完全一致
+- ✅ 无法编辑节点、无法保存、运行和发布按钮也会被禁用
 
 ### Agent 资源特殊处理
 

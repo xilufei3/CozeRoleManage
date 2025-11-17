@@ -15,7 +15,12 @@
  */
 
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { PromptEditorProvider } from '@/editor';
 
@@ -70,6 +75,23 @@ export const usePromptConfiguratorModal = (
     setVisible(true);
     setDynamicProps(options);
   };
+
+  // 统一在适配层计算编辑权限，避免基础弹窗内做RBAC检查导致渲染期更新
+  const hasUpdatePermission = useRBACPermission(
+    RBACResourceType.Prompt,
+    dynamicProps.editId || '',
+    RBACAction.Update,
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+    // 仅在可见时根据RBAC更新canEdit，避免在渲染路径里更新状态
+    setDynamicProps(prev => ({
+      ...prev,
+      canEdit:
+        prev.canEdit === true || hasUpdatePermission === true ? true : false,
+    }));
+  }, [visible, hasUpdatePermission]);
   return {
     node: visible ? (
       <PromptEditorProvider>

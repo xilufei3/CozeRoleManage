@@ -25,3 +25,31 @@ export { useDestoryProject } from './project/use-destory-project';
 export { EProjectPermission, ProjectRoleType } from './project/constants';
 export { useProjectRole } from './project/use-project-role';
 export { useProjectAuthStore } from './project/store';
+
+// RBAC权限管理
+export {
+  RBACResourceType,
+  RBACAction,
+  RESOURCE_ACTIONS_MAP,
+  RESOURCE_TYPE_NAMES,
+  ACTION_NAMES_ZH,
+  ACTION_NAMES_EN,
+  useRBACPermissionStore,
+  useInitRBACPermissions,
+  useRBACPermission,
+  useRBACTypePermission,
+  useRBACResourcePermissions,
+  useRBACBatchPermissions,
+  useRBACHasAnyPermission,
+  useRBACHasAllPermissions,
+  createLoadUserPermissions,
+  setupRBACDebug,
+  triggerRBACReload,
+} from './rbac';
+export type {
+  Role,
+  Permission,
+  UserPermissions,
+  PermissionCheckResult,
+  ResourcePermissions,
+} from './rbac';

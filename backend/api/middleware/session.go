@@ -40,7 +40,7 @@ var noNeedSessionCheckPath = map[string]bool{
 
 // 不需要 Session 检查的路径前缀
 var noNeedSessionCheckPrefix = []string{
-	"/api/rbac/", // RBAC 接口测试时暂时免认证
+	// "/api/rbac/", // RBAC 接口需要认证，已移除白名单
 }
 
 func SessionAuthMW() app.HandlerFunc {

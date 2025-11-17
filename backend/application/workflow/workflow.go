@@ -41,6 +41,7 @@ import (
 	appknowledge "github.com/coze-dev/coze-studio/backend/application/knowledge"
 	appmemory "github.com/coze-dev/coze-studio/backend/application/memory"
 	appplugin "github.com/coze-dev/coze-studio/backend/application/plugin"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/application/user"
 	"github.com/coze-dev/coze-studio/backend/bizpkg/debugutil"
 	crossknowledge "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge"
@@ -49,6 +50,7 @@ import (
 	crossuser "github.com/coze-dev/coze-studio/backend/crossdomain/user"
 	workflowModel "github.com/coze-dev/coze-studio/backend/crossdomain/workflow/model"
 	"github.com/coze-dev/coze-studio/backend/domain/plugin/dto"
+	rbacEntity "github.com/coze-dev/coze-studio/backend/domain/rbac/entity"
 	search "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	domainWorkflow "github.com/coze-dev/coze-studio/backend/domain/workflow"
 	"github.com/coze-dev/coze-studio/backend/domain/workflow/entity"
@@ -258,6 +260,27 @@ func (w *ApplicationService) CreateWorkflow(ctx context.Context, req *workflow.C
 		return nil, err
 	}
 
+	// 🔑 自动给创建者分配所有权限
+	logs.CtxInfof(ctx, "[RBAC] Attempting to assign creator permissions for workflow %d, apprbac.RBACService != nil: %v", id, apprbac.RBACService != nil)
+	if apprbac.RBACService != nil {
+		logs.CtxInfof(ctx, "[RBAC] Calling AssignCreatorPermissions for workflow %d, user %d, space %d", id, uID, spaceID)
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(uID, 10),
+			spaceID,
+			6, // ResourceTypeWorkflow
+			strconv.FormatInt(id, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "[RBAC] ❌ Failed to assign creator permissions for workflow %d: %v", id, err)
+		} else {
+			logs.CtxInfof(ctx, "[RBAC] ✅ Successfully assigned creator permissions for workflow %d to user %d", id, uID)
+		}
+	} else {
+		logs.CtxWarnf(ctx, "[RBAC] ⚠️ RBACService is nil, skipping permission assignment for workflow %d", id)
+	}
+
 	err = PublishWorkflowResource(ctx, id, ptr.Of(int32(wf.Mode)), search.Created, &search.ResourceDocument{
 		Name:          &wf.Name,
 		APPID:         wf.AppID,
@@ -464,6 +487,30 @@ func (w *ApplicationService) GetCanvasInfo(ctx context.Context, req *workflow.Ge
 		pluginID = strconv.FormatInt(wf.ID, 10)
 	}
 
+	// 🔑 检查RBAC update权限，用于判断用户是否可以编辑workflow
+	currentUserID := ctxutil.MustGetUIDFromCtx(ctx)
+	spaceID := mustParseInt64(req.GetSpaceID())
+	workflowID := mustParseInt64(req.GetWorkflowID())
+
+	hasRBACUpdatePermission := true // 默认为true，降级策略
+	if apprbac.RBACService != nil {
+		check := &rbacEntity.PermissionCheck{
+			UserID:       currentUserID,
+			SpaceID:      spaceID,
+			ResourceType: 6, // ResourceTypeWorkflow
+			ResourceID:   workflowID,
+			Action:       "update",
+		}
+		hasPermission, err := apprbac.RBACService.CheckPermission(ctx, check)
+		if err != nil {
+			// 权限检查失败，记录日志但不影响响应
+			logs.CtxErrorf(ctx, "Failed to check RBAC update permission for workflow %d: %v", workflowID, err)
+		} else {
+			hasRBACUpdatePermission = hasPermission
+			logs.CtxInfof(ctx, "RBAC update permission for workflow %d, user %d: %v", workflowID, currentUserID, hasPermission)
+		}
+	}
+
 	canvasData := &workflow.CanvasData{
 		Workflow: &workflow.Workflow{
 			WorkflowID:       strconv.FormatInt(wf.ID, 10),
@@ -492,6 +539,7 @@ func (w *ApplicationService) GetCanvasInfo(ctx context.Context, req *workflow.Ge
 			SubmitCommitID: wf.CommitID,
 			DraftCommitID:  wf.CommitID,
 			Type:           vcsType,
+			CanEdit:        hasRBACUpdatePermission, // 🔑 添加RBAC编辑权限
 		},
 		WorkflowVersion: wf.LatestPublishedVersion,
 	}
@@ -1175,6 +1223,23 @@ func (w *ApplicationService) copyWorkflow(ctx context.Context, workflowID int64,
 	wf, err := GetWorkflowDomainSVC().CopyWorkflow(ctx, workflowID, policy)
 	if err != nil {
 		return nil, err
+	}
+
+	// 🔑 复制原workflow的权限到新workflow
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.CopyResourcePermissions(
+			ctx,
+			6, // ResourceTypeWorkflow
+			strconv.FormatInt(workflowID, 10),
+			strconv.FormatInt(wf.ID, 10),
+			wf.SpaceID,
+		)
+		if err != nil {
+			// 记录日志但不影响复制流程
+			logs.CtxErrorf(ctx, "Failed to copy permissions from workflow %d to %d: %v", workflowID, wf.ID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully copied permissions from workflow %d to %d", workflowID, wf.ID)
+		}
 	}
 
 	err = PublishWorkflowResource(ctx, wf.ID, ptr.Of(int32(wf.Meta.Mode)), search.Created, &search.ResourceDocument{

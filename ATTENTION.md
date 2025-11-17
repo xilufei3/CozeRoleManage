@@ -37,7 +37,7 @@ import { axiosInstance } from '@coze-arch/bot-http';
 并且所有的 request.xxx 改为 axiosInstance.xxx，所有的 res.data 改为 res.data.data (因为响应格式不同)
 ```
 
-#### 每次运行使用node22的版本，不然会运行失败
+#### 每次运行使用node22的版本，不然会运行失败（启动zsh就行了，应该是配置了node22版本）
 
 #### axios 拦截器已经解包了响应，所以 res 本身就是数据，而不是 res.data。
 
@@ -215,6 +215,48 @@ HMR 配置不当: 开发服务器的 HMR（热更新）客户端尝试连接默�
 显式配置 dev.client 的 host 和 port，确保 HMR 在局域网环境下正常工作。
 经验教训
 前端路由命名需谨慎: 千万不要以 /api 开头，除非你真的想让它走后端代理。
+
+#### 不要用任何any类型！！！
+
+#### library_resource_list API 的资源类型和 RBAC 资源类型不一致
+
+**问题**: library_resource_list 返回的 res_type 和 RBAC 的 resource_type 编号不同
+**影响**: 权限检查时类型不匹配，导致权限失效
+
+**类型映射**:
+| 资源 | library ResType | RBAC ResourceType |
+|------|----------------|-------------------|
+| Plugin | 1 | 5 |
+| Workflow | 2 | 6 |
+| Knowledge | 4 | 7 |
+| Prompt | 6 | 17 |
+| Database | 7 | 23 |
+
+**解决**: 创建类型映射器 `rbac-resource-type-mapper.ts`，在权限检查前转换类型
+
+**文件位置**:
+- `frontend/packages/studio/workspace/entry-base/src/pages/library/hooks/rbac-resource-type-mapper.ts`
+- `frontend/packages/studio/workspace/entry-base/src/pages/library/hooks/use-resource-permissions.ts`
+
+#### RBAC 前端集成需要添加的依赖
+
+**问题**: 使用 `@coze-common/auth` 的包需要在 package.json 中添加依赖
+
+**需要添加依赖的包**:
+1. `frontend/apps/coze-studio/package.json` - 主应用
+2. `frontend/packages/studio/workspace/entry-base/package.json` - workspace基础包
+3. `frontend/packages/data/knowledge/knowledge-ide-base/package.json` - knowledge IDE基础包
+4. `frontend/packages/data/memory/database-v2-main/package.json` - database详情页包
+
+**添加方式**:
+```json
+"dependencies": {
+  "@coze-common/auth": "workspace:*",
+  ...
+}
+```
+
+**运行**: `rush update` 后生效（只需运行一次）
 
 ### 后端注意事项
 

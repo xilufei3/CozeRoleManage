@@ -20,6 +20,11 @@ import { useEntity } from '@flowgram-adapter/free-layout-editor';
 import { BaseTestButton } from '@coze-workflow/test-run';
 import { I18n } from '@coze-arch/i18n';
 import { type ButtonProps } from '@coze-arch/coze-design';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { useTestRunReporterService, useGlobalState } from '@/hooks';
 
@@ -37,16 +42,38 @@ export const StartTestRunButton: React.FC<StartTestRunButtonProps> = props => {
   const {
     config: { frozen },
   } = testFormState;
-  const { projectId, projectCommitVersion } = useGlobalState();
+  const { projectId, projectCommitVersion, workflowId } = useGlobalState();
 
-  const disabled = !!frozen || loading || !!(projectId && projectCommitVersion);
+  // 检查RBAC execute权限
+  const hasExecutePermission = useRBACPermission(
+    RBACResourceType.Workflow,
+    workflowId || '',
+    RBACAction.Execute,
+  );
+
+  // 试运行受RBAC execute权限控制，且受冻结与发布版本状态影响
+  const disabled =
+    !!frozen ||
+    loading ||
+    !!(projectId && projectCommitVersion) ||
+    hasExecutePermission === false;
   const testRunReporterService = useTestRunReporterService();
   const { testRunFlow } = useTestRunFlowV2();
+
+  console.log('[StartTestRunButton RBAC]', {
+    workflowId,
+    hasExecutePermission,
+    disabled,
+  });
 
   return (
     <BaseTestButton
       disabled={disabled}
       onClick={async () => {
+        if (hasExecutePermission === false) {
+          console.log('[StartTestRunButton] ✋ RBAC无execute权限，禁止运行');
+          return;
+        }
         testRunReporterService.tryStart({
           scene: 'toolbar',
         });

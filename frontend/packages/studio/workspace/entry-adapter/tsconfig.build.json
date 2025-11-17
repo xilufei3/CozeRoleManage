@@ -30,6 +30,9 @@
       "path": "../../../arch/idl/tsconfig.build.json"
     },
     {
+      "path": "../../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../../../config/eslint-config/tsconfig.build.json"
     },
     {

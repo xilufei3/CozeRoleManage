@@ -51,6 +51,7 @@ import {
   type DevelopProps,
   useProjectCopyPolling,
   useCardActions,
+  useIntelligencesWithPermissions,
 } from '@coze-studio/workspace-base/develop';
 import { useSpaceStore } from '@coze-foundation/space-store-adapter';
 import {
@@ -66,9 +67,15 @@ import {
   Search,
   Select,
   Spin,
+  Tooltip,
 } from '@coze-arch/coze-design';
 import { EVENT_NAMES, sendTeaEvent } from '@coze-arch/bot-tea';
 import { SpaceType } from '@coze-arch/bot-api/developer_api';
+import {
+  useRBACTypePermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 export const Develop: FC<DevelopProps> = ({ spaceId }) => {
   const isPersonal = useSpaceStore(
@@ -105,6 +112,17 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
     },
   });
 
+  // 🔑 注入RBAC权限信息并过滤无read权限的Agent
+  const intelligencesWithPermissions = useIntelligencesWithPermissions(
+    data?.list,
+  );
+
+  // 🔑 检查Agent的create权限
+  const hasAgentCreatePermission = useRBACTypePermission(
+    RBACResourceType.Agent,
+    RBACAction.Create,
+  );
+
   useGlobalEventListeners({ reload, spaceId });
 
   useEffect(() => {
@@ -122,7 +140,7 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
   }, []);
 
   useProjectCopyPolling({
-    listData: data?.list,
+    listData: intelligencesWithPermissions,
     spaceId,
     mutate,
   });
@@ -152,9 +170,21 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
             <span>{I18n.t('workspace_develop')}</span>
           </HeaderTitle>
           <HeaderActions>
-            <Button icon={<IconCozPlus />} onClick={actions.createIntelligence}>
-              {I18n.t('workspace_create')}
-            </Button>
+            <Tooltip
+              content={
+                !hasAgentCreatePermission
+                  ? '您没有创建此Agent的权限'
+                  : ''
+              }
+            >
+              <Button
+                icon={<IconCozPlus />}
+                onClick={actions.createIntelligence}
+                disabled={!hasAgentCreatePermission}
+              >
+                {I18n.t('workspace_create')}
+              </Button>
+            </Tooltip>
           </HeaderActions>
         </Header>
         <SubHeader>
@@ -303,14 +333,14 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
         <Content ref={containerRef}>
           <Spin spinning={loading} wrapperClassName="w-full !h-[80vh]">
             {/* When data is available */}
-            {data?.list.length ? (
+            {intelligencesWithPermissions.length ? (
               <div
                 className={classNames(
                   'grid grid-cols-3 auto-rows-min gap-[20px]',
                   '[@media(min-width:1600px)]:grid-cols-4',
                 )}
               >
-                {data.list.map((project, index) => (
+                {intelligencesWithPermissions.map((project, index) => (
                   <BotCard
                     key={`${project.basic_info?.id}-${index}`}
                     intelligenceInfo={project}
@@ -365,7 +395,7 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
               </div>
             ) : null}
 
-            {!data?.list?.length && !loading ? (
+            {!intelligencesWithPermissions.length && !loading ? (
               <WorkspaceEmpty
                 onClear={() => {
                   setFilterParams(FILTER_PARAMS_DEFAULT);
@@ -379,7 +409,7 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
             ) : null}
 
             {/* Show loading at the bottom. */}
-            {data?.list.length && loadingMore ? (
+            {intelligencesWithPermissions.length && loadingMore ? (
               <div className="flex items-center justify-center w-full h-[38px] my-[20px] coz-fg-secondary text-[12px]">
                 <IconButton
                   icon={<IconCozLoading />}
@@ -390,7 +420,7 @@ export const Develop: FC<DevelopProps> = ({ spaceId }) => {
               </div>
             ) : null}
             {/* Show a placeholder when there is no more data */}
-            {noMore && data?.list.length ? (
+            {noMore && intelligencesWithPermissions.length ? (
               <div className="h-[38px] my-[20px]"></div>
             ) : null}
           </Spin>

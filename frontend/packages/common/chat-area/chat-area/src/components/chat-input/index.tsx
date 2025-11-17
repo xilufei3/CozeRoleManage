@@ -76,10 +76,16 @@ import {
 import { usePreference } from '../../context/preference';
 import { useCopywriting } from '../../context/copywriting';
 import { useChatInputProps } from '../../context/chat-input-props';
+import { useMemo } from 'react';
 import {
   FILE_EXCEEDS_LIMIT_I18N_KEY,
   getFileSizeReachLimitI18n,
 } from '../../constants/file';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import styles from './index.module.less';
 
@@ -186,6 +192,17 @@ export const ChatInput: <T extends OverrideProps>(
   const couldSendMessage = useCouldSendNewMessage();
   const pasteUpload = usePasteUpload();
 
+  // 从 ChatAreaContext 获取 botId
+  const chatAreaContext = useChatAreaContext();
+  const botId = chatAreaContext?.botId || '';
+
+  // 检查RBAC execute权限（仅在 botId 存在时检查，适用于 Agent IDE 环境）
+  const hasExecutePermission = useRBACPermission(
+    RBACResourceType.Agent,
+    botId || '',
+    RBACAction.Execute,
+  );
+
   const messageService = new SendMessageService({
     methods: {
       sendTextMessage,
@@ -197,7 +214,23 @@ export const ChatInput: <T extends OverrideProps>(
     },
   });
 
-  const isSendButtonDisabled = !couldSendMessage;
+  // 综合判断：需要同时满足消息状态和 RBAC execute 权限
+  // 注意：只有在 botId 存在时才检查 execute 权限（Agent IDE 环境）
+  const isSendButtonDisabled =
+    !couldSendMessage || (botId && hasExecutePermission === false);
+
+  // 如果没有 execute 权限，禁用整个输入框（包括输入框和所有按钮）
+  const isInputDisabledByRBAC = botId && hasExecutePermission === false;
+
+  // 生成发送按钮的提示信息（当整个输入框被禁用时，也显示这个提示）
+  const sendButtonTooltip = useMemo(() => {
+    // 如果是 RBAC 权限问题，显示权限提示
+    if (isInputDisabledByRBAC) {
+      return '您没有执行此Agent的权限';
+    }
+    // 其他情况使用默认提示
+    return undefined;
+  }, [isInputDisabledByRBAC]);
 
   const { SendButton } = useUIKitCustomComponent();
 
@@ -240,6 +273,8 @@ export const ChatInput: <T extends OverrideProps>(
 
   const handleSendMessage = (payload: SendMessagePayload) => {
     if (isSendButtonDisabled) {
+      // 按钮已被禁用，不应该触发发送（按钮的 disabled 状态应该已经阻止了点击）
+      // 这里作为双重保险，如果仍然被调用，直接返回
       return;
     }
 
@@ -257,8 +292,14 @@ export const ChatInput: <T extends OverrideProps>(
 
   const handleClearContext = useClearContext();
 
-  const buildInButtonStatus: IChatInputProps['buildInButtonStatus'] =
+  const buildInButtonStatusBase =
     useBuiltinButtonStatus(uikitChatInputButtonStatus);
+
+  // 覆盖 isSendButtonDisabled，加入 RBAC 权限检查
+  const buildInButtonStatus: IChatInputProps['buildInButtonStatus'] = {
+    ...buildInButtonStatusBase,
+    isSendButtonDisabled: isSendButtonDisabled || buildInButtonStatusBase.isSendButtonDisabled,
+  };
 
   const handleLegacyUpload: UploadCallback = (uploadType, payload) => {
     if (!couldSendMessage) {
@@ -368,7 +409,8 @@ export const ChatInput: <T extends OverrideProps>(
         copywritingConfig={{
           inputPlaceholder: textareaPlaceholder,
           tooltip: {
-            sendButtonTooltipContent: I18n.t('mkpl_send_tooltips'),
+            sendButtonTooltipContent:
+              sendButtonTooltip || I18n.t('mkpl_send_tooltips'),
             moreButtonTooltipContent: uploadButtonTooltipContent,
             clearContextButtonTooltipContent: clearContextTooltipContent,
             clearHistoryButtonTooltipContent: I18n.t('coze_home_delete_btn'),
@@ -388,8 +430,8 @@ export const ChatInput: <T extends OverrideProps>(
           },
           bottomTips: textareaBottomTips,
         }}
-        isReadonly={readonly}
-        isInputReadonly={isInputReadonly}
+        isReadonly={readonly || Boolean(isInputDisabledByRBAC)}
+        isInputReadonly={isInputReadonly || Boolean(isInputDisabledByRBAC)}
         hasOtherContentToSend={Boolean(filesLength)}
         inputTooltip={chatInputTooltip}
         layout={layout}

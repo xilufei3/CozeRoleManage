@@ -60,6 +60,9 @@
       "path": "../../bot-utils/tsconfig.build.json"
     },
     {
+      "path": "../../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../../common/biz-components/tsconfig.build.json"
     },
     {

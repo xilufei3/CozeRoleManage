@@ -49,7 +49,7 @@ interface ResourceType {
   actions: string[];
 }
 
-// 资源类型常量
+// 资源类型常量（对照 RBAC_FINAL_COMPLETE_DOCUMENTATION.md）
 const RESOURCE_TYPES: ResourceType[] = [
   {
     id: 4,
@@ -63,7 +63,7 @@ const RESOURCE_TYPES: ResourceType[] = [
     resType: 1,
     name: 'Plugin',
     color: 'green',
-    actions: ['create', 'read', 'update', 'delete', 'execute'],
+    actions: ['create', 'read', 'update', 'delete', 'install'], // ✅ install 不是 execute
   },
   {
     id: 6,
@@ -77,7 +77,7 @@ const RESOURCE_TYPES: ResourceType[] = [
     resType: 4,
     name: 'Knowledge',
     color: 'red',
-    actions: ['create', 'read', 'update', 'delete'],
+    actions: ['create', 'read', 'update', 'delete', 'manage'], // ✅ 添加 manage
   },
   {
     id: 17,
@@ -219,6 +219,17 @@ export function PermissionConfigModal({
     resourceType: number,
     values: string[],
   ) => {
+    const prevSelected = selectedResources[resourceType] || [];
+
+    // 找出被移除的资源
+    const removedResources = prevSelected.filter(id => !values.includes(id));
+
+    // 清除被移除资源的权限配置
+    removedResources.forEach(resourceId => {
+      const key = `${resourceType}_${resourceId}`;
+      onPermissionChange(key, []); // 设置为空数组，清除所有权限
+    });
+
     setSelectedResources(prev => ({
       ...prev,
       [resourceType]: values,
@@ -351,6 +362,11 @@ function ResourceSelector({
   onSelectionChange,
   onPermissionChange,
 }: ResourceSelectorProps) {
+  // 过滤掉create权限，因为create只应该在"所有资源"级别配置
+  const specificResourceActions = resourceActions.filter(
+    action => action !== 'create',
+  );
+
   return (
     <>
       <Select
@@ -381,35 +397,40 @@ function ResourceSelector({
             const allResourcesKey = `${resourceId}_0`;
             const allResourceActions = permissions[allResourcesKey] || [];
 
-            // 合并权限：具体资源的权限 + 所有资源的权限
+            // 从"所有资源"权限中过滤掉create（create不会传递到具体资源）
+            const inheritedActions = allResourceActions.filter(
+              action => action !== 'create',
+            );
+
+            // 合并权限：具体资源的权限 + 所有资源的权限（不包括create）
             const specificActions = permissions[key] || [];
             const mergedActions = Array.from(
-              new Set([...allResourceActions, ...specificActions]),
+              new Set([...inheritedActions, ...specificActions]),
             );
 
             return (
               <div key={resId} className="p-2 bg-blue-50 rounded">
                 <Text className="mb-1 block text-sm">
                   {resourceName}
-                  {allResourceActions.length > 0 && (
+                  {inheritedActions.length > 0 && (
                     <Text type="secondary" className="text-xs ml-2">
-                      (已继承所有资源的 {allResourceActions.length} 个权限)
+                      (已继承所有资源的 {inheritedActions.length} 个权限)
                     </Text>
                   )}
                 </Text>
                 <Checkbox.Group
                   value={mergedActions}
                   onChange={(values: string[]) => {
-                    // 从选中的值中去除"所有资源"的权限，只保存额外的权限
+                    // 从选中的值中去除继承的权限，只保存额外的权限
                     const extraActions = (values as string[]).filter(
-                      v => !allResourceActions.includes(v),
+                      v => !inheritedActions.includes(v),
                     );
                     onPermissionChange(resourceId, resId, extraActions);
                   }}
                 >
                   <Space wrap>
-                    {resourceActions.map(action => {
-                      const isFromAll = allResourceActions.includes(action);
+                    {specificResourceActions.map(action => {
+                      const isFromAll = inheritedActions.includes(action);
                       return (
                         <Checkbox
                           key={action}

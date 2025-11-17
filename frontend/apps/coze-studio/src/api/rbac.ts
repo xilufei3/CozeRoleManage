@@ -262,6 +262,7 @@ export interface SpaceResource {
   icon?: string;
   creator_name?: string;
   creator_avatar?: string;
+  creator_id?: string; // 创建者ID
 }
 
 export const getSpaceResources = async (
@@ -285,10 +286,10 @@ export const getSpaceResources = async (
     // axios 拦截器已经处理过响应，res 就是实际数据
     // 如果 res 有 resource_list，直接返回 res
     if (res && 'resource_list' in res) {
-      return res as {
-        resource_list: SpaceResource[];
-        has_more: boolean;
-        cursor?: string;
+      return {
+        resource_list: (res as any).resource_list || [],
+        has_more: (res as any).has_more || false,
+        cursor: (res as any).cursor,
       };
     }
 
@@ -306,9 +307,10 @@ export interface AgentResource {
   id?: string;
   name?: string;
   description?: string;
+  creator_id?: string; // 创建者ID
 }
 
-// 获取空间下的 Agent 列表
+// 获取空间下的 Agent 列表（返回所有Agent，不进行权限过滤）
 export const getSpaceAgents = async (
   spaceId: string,
 ): Promise<{
@@ -320,10 +322,30 @@ export const getSpaceAgents = async (
       params: { space_id: spaceId },
     });
 
-    // 返回 agents 列表
+    // 后端返回结构: { code: 0, msg: "", data: { agents: [...], total: number } }
+    // axios 拦截器可能已经处理过响应，需要检查实际结构
+    let responseData;
+    if (res.data?.data) {
+      // 标准结构：{ code: 0, data: { agents: [...], total: number } }
+      responseData = res.data.data;
+    } else if (res.data?.agents) {
+      // 直接返回数据：{ agents: [...], total: number }
+      responseData = res.data;
+    } else {
+      // 可能是拦截器处理后的结构
+      responseData = res.data;
+    }
+
+    const agents = (responseData?.agents || []).map((agent: any) => ({
+      id: String(agent.id || agent.ID || ''),
+      name: agent.name || agent.Name || '未命名 Agent',
+      description: agent.description || agent.Description || '',
+      creator_id: agent.creator_id || agent.CreatorID || agent.creatorId || '',
+    }));
+
     return {
-      agents: res.data?.agents || [],
-      total: res.data?.total || 0,
+      agents,
+      total: responseData?.total || responseData?.Total || agents.length,
     };
   } catch (error) {
     console.error('[RBAC] 加载 Agent 列表失败:', error);

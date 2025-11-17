@@ -19,6 +19,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/base"
 	"github.com/coze-dev/coze-studio/backend/api/model/data/database/table"
@@ -26,6 +27,7 @@ import (
 	document "github.com/coze-dev/coze-studio/backend/api/model/data/knowledge"
 	resCommon "github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/application/search"
 	model "github.com/coze-dev/coze-studio/backend/crossdomain/database/model"
 	crossuser "github.com/coze-dev/coze-studio/backend/crossdomain/user"
@@ -157,6 +159,24 @@ func (d *DatabaseApplicationService) AddDatabase(ctx context.Context, req *table
 	}
 
 	databaseRes := res.Database
+
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(*uid, 10),
+			databaseRes.SpaceID,
+			23, // ResourceTypeDatabase
+			strconv.FormatInt(databaseRes.ID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for database %d: %v", databaseRes.ID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for database %d to user %d", databaseRes.ID, *uid)
+		}
+	}
+
 	var ptrAppID *int64
 	if databaseRes.AppID != 0 {
 		ptrAppID = ptr.Of(databaseRes.AppID)

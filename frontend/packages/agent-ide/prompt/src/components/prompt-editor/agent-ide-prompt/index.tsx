@@ -67,14 +67,14 @@ const AgentIdePrompt = (props: AgentIdePromptProps) => {
           'h-[320px] p-[16px]',
         )}
       >
-        <PromptEditorRender {...props} />
+        <PromptEditorRender {...props} readonly={isReadonly} />
       </div>
     );
   }
   if (isReadonly) {
     return (
       <div className={styles['agent-ide-prompt-editor']}>
-        <PromptEditorRender {...props} />
+        <PromptEditorRender {...props} readonly={isReadonly} />
         <InputSlotWidget mode="input" />
         <LibraryBlockWidget
           librarys={[]}
@@ -92,7 +92,7 @@ const AgentIdePrompt = (props: AgentIdePromptProps) => {
         className={styles['agent-ide-prompt-editor']}
         style={{ height: '100%' }}
       >
-        <PromptEditorRender {...props} />
+        <PromptEditorRender {...props} readonly={isReadonly} />
       </div>
       <InputSlotWidget mode="input" />
       <LibraryBlockWidget

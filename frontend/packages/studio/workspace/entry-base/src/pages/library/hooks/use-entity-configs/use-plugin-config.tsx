@@ -33,6 +33,7 @@ import { Menu, Tag, Toast, Table } from '@coze-arch/coze-design';
 import { BaseLibraryItem } from '../../components/base-library-item';
 import PluginDefaultIcon from '../../assets/plugin_default_icon.png';
 import { type UseEntityConfigHook } from './types';
+import { type ResourceInfoWithPermissions } from '../use-resource-permissions';
 
 const { TableAction } = Table;
 
@@ -116,9 +117,23 @@ export const usePluginConfig: UseEntityConfigHook = ({
         />
       ),
       renderActions: (item: ResourceInfo) => {
-        const deleteDisabled = !item.actions?.find(
-          action => action.key === ActionKey.Delete,
-        )?.enable;
+        // 类型断言，获取RBAC权限信息
+        const itemWithPermissions = item as ResourceInfoWithPermissions;
+        const rbacPerms = itemWithPermissions.rbac_permissions || {};
+
+        // 基于RBAC权限判断按钮状态
+        const deleteDisabled = rbacPerms.delete === false;
+
+        // 🐛 调试信息
+        console.log(
+          `[Plugin Action] 资源: ${item.res_id} "${item.name}"`,
+          '\n  权限对象:',
+          rbacPerms,
+          '\n  delete权限:',
+          rbacPerms.delete,
+          '\n  删除按钮禁用:',
+          deleteDisabled,
+        );
 
         const deleteProps = {
           disabled: deleteDisabled,

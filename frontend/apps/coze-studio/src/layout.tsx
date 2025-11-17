@@ -14,10 +14,33 @@
  * limitations under the License.
  */
 
+import { useEffect } from 'react';
+
 import { GlobalLayout, useAppInit } from '@coze-foundation/global-adapter';
+import { useUserInfo } from '@coze-foundation/account-adapter';
+import { useSpaceStore } from '@coze-foundation/space-store';
+import { axiosInstance } from '@coze-arch/bot-http';
+import { useInitRBACPermissions, setupRBACDebug } from '@coze-common/auth';
 
 export const Layout = () => {
   useAppInit();
+
+  // 获取当前用户和空间信息
+  const userInfo = useUserInfo();
+  const currentSpace = useSpaceStore(state => state.space);
+
+  // 设置RBAC调试工具（开发环境）
+  useEffect(() => {
+    setupRBACDebug();
+  }, []);
+
+  // 🔑 初始化RBAC权限系统
+  // 这将在用户登录后自动加载权限，实现细粒度的资源访问控制
+  useInitRBACPermissions(
+    userInfo?.user_id_str || '',
+    currentSpace?.id || '',
+    axiosInstance,
+  );
 
   return <GlobalLayout />;
 };

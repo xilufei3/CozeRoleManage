@@ -23,6 +23,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 
 	rbacModel "github.com/coze-dev/coze-studio/backend/api/model/rbac"
+	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
 	"github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/domain/rbac/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/rbac/service"
@@ -540,7 +541,7 @@ func BatchCheckPermissions(ctx context.Context, c *app.RequestContext) {
 
 // ---------- 资源查询 Handler ----------
 
-// GetSpaceAgents 获取空间下的 Agent 列表
+// GetSpaceAgents 获取空间下的 Agent 列表（返回所有Agent，不进行权限过滤）
 // @router /api/rbac/resources/agents [GET]
 func GetSpaceAgents(ctx context.Context, c *app.RequestContext) {
 	var req rbacModel.GetSpaceAgentsRequest
@@ -549,25 +550,35 @@ func GetSpaceAgents(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 获取当前用户ID（用于session验证）
+	userID := ctxutil.GetUIDFromCtx(ctx)
+	if userID == nil {
+		invalidParamRequestResponse(c, "session required")
+		return
+	}
+
+	// 获取空间下的所有 Agent（不进行权限过滤，由前端处理）
 	agents, err := rbac.RBACService.GetSpaceAgents(ctx, req.SpaceID)
 	if err != nil {
 		internalServerErrorResponse(ctx, c, err)
 		return
 	}
 
+	// 转换为响应格式
 	agentList := make([]*rbacModel.AgentInfo, 0, len(agents))
 	for _, agent := range agents {
 		agentList = append(agentList, &rbacModel.AgentInfo{
 			ID:          agent.ID,
 			Name:        agent.Name,
 			Description: agent.Description,
+			CreatorID:   agent.CreatorID,
 		})
 	}
 
 	resp := &rbacModel.GetSpaceAgentsResponse{
 		Data: &rbacModel.AgentListData{
 			Agents: agentList,
-			Total:  len(agents),
+			Total:  len(agentList),
 		},
 	}
 	c.JSON(consts.StatusOK, resp)

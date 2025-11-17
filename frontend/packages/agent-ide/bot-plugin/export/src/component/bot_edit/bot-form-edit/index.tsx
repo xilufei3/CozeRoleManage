@@ -42,6 +42,7 @@ import {
   Toast,
   Typography,
 } from '@coze-arch/coze-design';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import s from '../index.module.less';
 import { PluginDocs } from '../../plugin-docs';
@@ -168,6 +169,11 @@ export const CreateFormPluginModal: FC<CreatePluginFormProps> = props => {
           : I18n.t('Plugin_update_toast_success'),
         showClose: false,
       });
+      // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+      if (isCreate) {
+        triggerRBACReload();
+        console.log('[Plugin Create (Form)] 触发RBAC权限刷新');
+      }
       onCancel?.();
       onSuccess?.(pluginID);
     } catch (error) {
