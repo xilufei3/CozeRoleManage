@@ -126,6 +126,9 @@ importers:
       '@coze-workflow/playground-adapter':
         specifier: workspace:*
         version: link:../../packages/workflow/adapter/playground
+      '@coze-workflow/test-run':
+        specifier: workspace:*
+        version: link:../../packages/workflow/test-run
       path-browserify:
         specifier: ^1.0.1
         version: 1.0.1

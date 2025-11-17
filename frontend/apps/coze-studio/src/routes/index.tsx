@@ -46,6 +46,7 @@ import {
   ExplorePluginPage,
   ExploreTemplatePage,
   SystemLayout,
+  MyPermissions,
   RoleManagement,
   UserManagement,
   IdentityManagement,
@@ -249,7 +250,11 @@ export const router: ReturnType<typeof createBrowserRouter> =
                   children: [
                     {
                       index: true,
-                      element: <Navigate to="roles" replace />,
+                      element: <Navigate to="permissions" replace />,
+                    },
+                    {
+                      path: 'permissions',
+                      Component: MyPermissions,
                     },
                     {
                       path: 'roles',

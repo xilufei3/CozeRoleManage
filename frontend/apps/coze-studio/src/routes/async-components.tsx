@@ -154,6 +154,11 @@ export const ExplorePluginPage = lazy(() =>
 // system config layout
 export const SystemLayout = lazy(() => import('../pages/system/layout'));
 
+// my permissions page
+export const MyPermissions = lazy(
+  () => import('../pages/system/my-permissions'),
+);
+
 // role management page
 export const RoleManagement = lazy(
   () => import('../pages/system/role-management'),

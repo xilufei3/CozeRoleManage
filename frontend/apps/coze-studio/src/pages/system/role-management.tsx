@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { useOutletContext } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useSpaceStore } from '@coze-foundation/space-store';
@@ -42,12 +43,18 @@ import {
   listRoles,
   getRolePermissions,
   setRolePermissions,
-} from '@/api/rbac';
-import type { Role, Permission } from '@/api/rbac';
-
+} from '../../api/rbac';
+import type { Role, Permission } from '../../api/rbac';
 import { PermissionConfigModal } from './components/PermissionConfigModal';
 
 const { Title, Text } = Typography;
+
+interface SystemOutletContext {
+  isOwner: boolean;
+  isAdmin?: boolean;
+  canViewRoles?: boolean;
+  canViewUsers?: boolean;
+}
 
 // 角色编辑模态框
 function RoleEditModal({
@@ -362,8 +369,14 @@ function useRoleColumns(
 }
 
 export default function RoleManagement() {
+  const {
+    isOwner,
+    isAdmin = false,
+    canViewRoles = false,
+  } = useOutletContext<SystemOutletContext>();
   const currentSpace = useSpaceStore(state => state.space);
   const spaceId = currentSpace?.id || '';
+  const hasAccess = isOwner || isAdmin || canViewRoles;
 
   const { roles, loading, loadRoles, handleDeleteRole } =
     useRoleManagement(spaceId);
@@ -395,6 +408,18 @@ export default function RoleManagement() {
     showRoleModal,
     handleDeleteRole,
   );
+
+  if (!hasAccess) {
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <div className="text-center">
+          <Text type="secondary" className="text-lg">
+            您当前的权限不足，无法访问角色管理
+          </Text>
+        </div>
+      </div>
+    );
+  }
 
   // 如果没有 space，显示提示
   if (!spaceId) {

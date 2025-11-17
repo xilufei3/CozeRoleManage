@@ -55,6 +55,9 @@ type TagColor = ComponentProps<typeof Tag>['color'];
 
 interface SystemOutletContext {
   isOwner: boolean;
+  isAdmin?: boolean;
+  canViewRoles?: boolean;
+  canViewUsers?: boolean;
 }
 
 const ROLE_META: Record<RoleType, { text: string; color?: TagColor }> = {

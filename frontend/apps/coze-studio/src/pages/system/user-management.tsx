@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-/* eslint-disable max-lines -- keep entire user management flow in one file as requested */
-
+import { useOutletContext } from 'react-router-dom';
 import {
   useCallback,
   useEffect,
@@ -28,7 +27,6 @@ import { useSpaceStore } from '@coze-foundation/space-store';
 import { IconCozEdit } from '@coze-arch/coze-design/icons';
 import {
   Button,
-  Card,
   Modal,
   Select,
   Space,
@@ -58,14 +56,21 @@ interface SpaceSummary {
 }
 type TagColor = ComponentProps<typeof Tag>['color'];
 
-const ROLE_META: Record<RoleType, { text: string; color: TagColor }> = {
-  [RoleType.Owner]: { text: 'Owner', color: 'red' },
-  [RoleType.Admin]: { text: 'Admin', color: 'orange' },
-  [RoleType.Member]: { text: 'Member', color: 'blue' },
+interface SystemOutletContext {
+  isOwner: boolean;
+  isAdmin?: boolean;
+  canViewRoles?: boolean;
+  canViewUsers?: boolean;
+}
+
+const ROLE_META: Record<RoleType, { text: string; color?: TagColor }> = {
+  [RoleType.Owner]: { text: 'Owner', color: 'red' as TagColor },
+  [RoleType.Admin]: { text: 'Admin', color: 'orange' as TagColor },
+  [RoleType.Member]: { text: 'Member', color: 'blue' as TagColor },
 };
-const DEFAULT_ROLE_META: { text: string; color: TagColor } = {
+const DEFAULT_ROLE_META: { text: string; color?: TagColor } = {
   text: '未知',
-  color: 'default',
+  color: undefined,
 };
 
 const getRoleInfo = (roleType?: number) =>
@@ -441,80 +446,6 @@ const UserRoleAssignModal = ({
   </Modal>
 );
 
-const UserPermissionDetailModal = ({
-  visible,
-  userPermission,
-  onClose,
-}: {
-  visible: boolean;
-  userPermission: UserPermissions | null;
-  onClose: () => void;
-}) => (
-  <Modal
-    title="用户权限详情"
-    visible={visible}
-    onCancel={onClose}
-    footer={[
-      <Button key="close" onClick={onClose}>
-        关闭
-      </Button>,
-    ]}
-    style={{ width: 800 }}
-  >
-    {userPermission ? (
-      <div>
-        <div className="mb-4">
-          <Text strong>基本信息</Text>
-          <div className="mt-2 space-y-2">
-            <div>
-              <Text type="secondary">用户 ID: </Text>
-              <Text>{userPermission.user_id}</Text>
-            </div>
-            <div>
-              <Text type="secondary">工作空间 ID: </Text>
-              <Text>{userPermission.space_id}</Text>
-            </div>
-          </div>
-        </div>
-        <div className="mb-4">
-          <Text strong className="mb-2 block">
-            拥有角色
-          </Text>
-          <Space wrap>
-            {userPermission.roles?.map(role => (
-              <Tag key={role.id} color="blue">
-                {role.name}
-              </Tag>
-            ))}
-          </Space>
-        </div>
-        <div>
-          <Text strong className="mb-2 block">
-            权限详情
-          </Text>
-          <div className="flex flex-col gap-3">
-            {Object.entries(userPermission.permissions || {}).map(
-              ([resourceType, actions]) => (
-                <Card
-                  key={resourceType}
-                  title={`资源类型 ${resourceType}`}
-                  bordered
-                >
-                  <Space wrap>
-                    {(Array.isArray(actions) ? actions : []).map(action => (
-                      <Tag key={action}>{action}</Tag>
-                    ))}
-                  </Space>
-                </Card>
-              ),
-            )}
-          </div>
-        </div>
-      </div>
-    ) : null}
-  </Modal>
-);
-
 const useUserManagementController = (
   spaceId: string,
   currentRoleType?: RoleType,
@@ -551,16 +482,22 @@ const useUserManagementController = (
 };
 
 export default function UserManagement() {
+  const { isOwner, isAdmin = false } = useOutletContext<SystemOutletContext>();
   const currentSpace = useSpaceStore(
     state => state.space,
   ) as SpaceSummary | null;
   const spaceId = currentSpace?.id || '';
-  const currentRoleType = currentSpace?.role_type;
+  const currentRoleType = isOwner
+    ? RoleType.Owner
+    : isAdmin
+      ? RoleType.Admin
+      : currentSpace?.role_type;
+  const hasAccess = isOwner || isAdmin;
 
   const { users, roles, columns, loading, assignModal, permissionModal } =
     useUserManagementController(spaceId, currentRoleType);
 
-  if (assignModal.isMember) {
+  if (!hasAccess) {
     return (
       <div className="p-6 flex items-center justify-center h-full">
         <div className="text-center">
@@ -587,7 +524,7 @@ export default function UserManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Title heading={3}>用户身份管理</Title>
+        <Title heading={3}>用户管理</Title>
         <Text type="secondary">为用户分配角色，管理用户的访问权限</Text>
       </div>
 

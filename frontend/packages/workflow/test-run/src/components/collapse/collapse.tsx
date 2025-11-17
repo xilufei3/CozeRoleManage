@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import React, { useRef, useState, forwardRef } from 'react';
+import React, { useRef, useState, useMemo, useEffect, forwardRef } from 'react';
 
 import cls from 'classnames';
 import { useHover } from 'ahooks';
@@ -33,6 +33,8 @@ interface CollapseProps {
   extraClassName?: string;
   fade?: boolean;
   duration?: number;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const Collapse = forwardRef<
@@ -51,17 +53,35 @@ export const Collapse = forwardRef<
       extraClassName,
       fade,
       duration,
+      defaultOpen,
+      onOpenChange,
     },
     ref,
   ) => {
-    const [isOpen, setIsOpen] = useState(true);
+    const initialOpen = useMemo(
+      () => (defaultOpen !== undefined ? defaultOpen : true),
+      [defaultOpen],
+    );
+    const [isOpen, setIsOpen] = useState(initialOpen);
     const titleRef = useRef<HTMLDivElement>(null);
     const isTitleHover = useHover(() => titleRef.current);
+
+    useEffect(() => {
+      setIsOpen(initialOpen);
+    }, [initialOpen]);
+
+    const handleToggle = () => {
+      setIsOpen(prev => {
+        const next = !prev;
+        onOpenChange?.(next);
+        return next;
+      });
+    };
 
     return (
       <div ref={ref} className={className}>
         <div
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           ref={titleRef}
           className={cls(
             'cursor-pointer',
