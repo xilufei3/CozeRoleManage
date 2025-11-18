@@ -57,6 +57,7 @@ type PermissionRepository interface {
 	CreateUserResourcePermission(ctx context.Context, permission *model.RbacUserResourcePermission) error
 	GetUserPermissionsByResource(ctx context.Context, spaceID int64, resourceType int, resourceID string) ([]*model.RbacUserResourcePermission, error)
 	GetUserDirectPermissions(ctx context.Context, spaceID int64, userID string) ([]*model.RbacUserResourcePermission, error)
+	DeleteUserResourcePermission(ctx context.Context, spaceID int64, resourceType int, resourceID string) error
 }
 
 // NewRoleRepo 创建角色仓储

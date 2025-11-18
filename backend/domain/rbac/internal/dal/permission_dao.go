@@ -137,4 +137,12 @@ func (dao *PermissionDAO) GetUserDirectPermissions(ctx context.Context, spaceID 
 	return permissions, err
 }
 
+// DeleteUserResourcePermission 删除资源的用户权限
+func (dao *PermissionDAO) DeleteUserResourcePermission(ctx context.Context, spaceID int64, resourceType int, resourceID string) error {
+	db := dao.query.RbacRoleResourcePermission.WithContext(ctx).UnderlyingDB()
+	return db.Table(model.TableNameRbacUserResourcePermission).
+		Where("space_id = ? AND resource_type = ? AND resource_id = ?", spaceID, resourceType, resourceID).
+		Delete(&model.RbacUserResourcePermission{}).Error
+}
+
 

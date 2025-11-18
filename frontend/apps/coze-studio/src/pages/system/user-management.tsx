@@ -15,21 +15,13 @@
  */
 
 import { useOutletContext } from 'react-router-dom';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentProps,
-} from 'react';
+import { useCallback, useMemo, useState, type ComponentProps } from 'react';
 
 import { useSpaceStore } from '@coze-foundation/space-store';
-import { useUserInfo } from '@coze-foundation/account-adapter';
+import { triggerRBACReload } from '@coze-common/auth';
 import { IconCozEdit } from '@coze-arch/coze-design/icons';
 import {
   Button,
-  Modal,
-  Select,
   Space,
   Table,
   Tag,
@@ -37,16 +29,19 @@ import {
   Typography,
 } from '@coze-arch/coze-design';
 
-import { RoleType, getSpaceUserList, type SpaceUser } from '../../api/space';
+import { RoleType, type SpaceUser } from '../../api/space';
 import {
   assignRoleToUser,
   getUserPermissions,
-  getUserRoles,
-  listRoles,
   removeUserRole,
   type Role,
   type UserPermissions,
 } from '../../api/rbac';
+import {
+  useUserData,
+  useRoleResources,
+} from './hooks/use-user-management-data';
+import { UserRoleAssignModal } from './components/UserRoleAssignModal';
 import { UserPermissionDetailModal } from './components/UserPermissionDetailModal';
 
 const { Title, Text } = Typography;
@@ -76,107 +71,6 @@ const DEFAULT_ROLE_META: { text: string; color?: TagColor } = {
 
 const getRoleInfo = (roleType?: number) =>
   ROLE_META[roleType as RoleType] ?? DEFAULT_ROLE_META;
-
-const useUserData = (spaceId: string) => {
-  const [users, setUsers] = useState<SpaceUser[]>([]);
-
-  useEffect(() => {
-    let aborted = false;
-    const loadUsers = async () => {
-      if (!spaceId) {
-        setUsers([]);
-        return;
-      }
-      try {
-        const list = await getSpaceUserList(spaceId);
-        if (!aborted) {
-          setUsers(list || []);
-        }
-      } catch (error) {
-        console.error('加载空间用户失败', error);
-        if (!aborted) {
-          setUsers([]);
-        }
-      }
-    };
-    loadUsers();
-    return () => {
-      aborted = true;
-    };
-  }, [spaceId]);
-
-  return users;
-};
-
-const useRoleResources = (
-  spaceId: string,
-  users: SpaceUser[],
-  currentRoleType?: RoleType,
-) => {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [userRoles, setUserRoles] = useState<Record<string, Role[]>>({});
-  const [loading, setLoading] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-
-  const loadRoles = useCallback(async () => {
-    if (!spaceId) {
-      return;
-    }
-    try {
-      const data = await listRoles(spaceId);
-      let roleList = data?.roles || [];
-      if (currentRoleType === RoleType.Admin) {
-        roleList = roleList.filter(role => role.name !== 'Owner');
-      }
-      if (currentRoleType === RoleType.Member) {
-        roleList = [];
-      }
-      setRoles(roleList);
-    } catch (error) {
-      console.error('加载角色列表失败', error);
-      setRoles([]);
-    }
-  }, [currentRoleType, spaceId]);
-
-  const loadAllUserRoles = useCallback(async () => {
-    if (!spaceId || users.length === 0) {
-      setUserRoles({});
-      return;
-    }
-    setLoading(true);
-    try {
-      const rolesMap: Record<string, Role[]> = {};
-      await Promise.all(
-        users.map(async user => {
-          try {
-            const data = await getUserRoles(user.id, spaceId);
-            rolesMap[user.id] = data?.roles || [];
-          } catch (error) {
-            console.error(`Failed to load roles for user ${user.id}`, error);
-            rolesMap[user.id] = [];
-          }
-        }),
-      );
-      setUserRoles(rolesMap);
-    } catch (error) {
-      console.error('加载用户角色失败', error);
-      setUserRoles({});
-    } finally {
-      setLoading(false);
-    }
-  }, [spaceId, users]);
-
-  // 只在初始化时加载一次
-  useEffect(() => {
-    loadRoles();
-  }, [loadRoles]);
-
-  useEffect(() => {
-    loadAllUserRoles();
-  }, [loadAllUserRoles]);
-
-  return { roles, userRoles, loading, loadAllUserRoles };
-};
 
 interface AssignModalState {
   isVisible: boolean;
@@ -258,6 +152,9 @@ const useAssignModalState = ({
       }
 
       Toast.success('角色分配成功');
+      // 🔑 角色分配/移除后触发权限重新加载，确保权限变更立即生效
+      triggerRBACReload();
+      console.log('[UserManagement] 角色分配成功，触发权限刷新');
       close();
       await loadAllUserRoles();
     } catch (error) {
@@ -404,54 +301,6 @@ const useUserColumns = ({
     [canAssign, currentRoleType, onAssignRoles, onViewPermissions, userRoles],
   );
 };
-
-const UserRoleAssignModal = ({
-  visible,
-  userName,
-  roles,
-  selectedRoleIds,
-  onRoleChange,
-  onSave,
-  onCancel,
-}: {
-  visible: boolean;
-  userName?: string;
-  roles: Role[];
-  selectedRoleIds: string[];
-  onRoleChange: (value: string[]) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) => (
-  <Modal
-    title={`分配角色 - ${userName ?? ''}`}
-    visible={visible}
-    onOk={onSave}
-    onCancel={onCancel}
-    okText="保存"
-    cancelText="取消"
-  >
-    <div className="py-4">
-      <Text className="mb-2 block">选择角色</Text>
-      <Select
-        multiple
-        value={selectedRoleIds}
-        onChange={value => {
-          if (Array.isArray(value)) {
-            onRoleChange(value.map(item => String(item)));
-          }
-        }}
-        placeholder="请选择角色"
-        style={{ width: '100%' }}
-      >
-        {roles.map(role => (
-          <Select.Option key={role.id} value={role.id}>
-            {role.name}
-          </Select.Option>
-        ))}
-      </Select>
-    </div>
-  </Modal>
-);
 
 const useUserManagementController = (
   spaceId: string,

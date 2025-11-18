@@ -20,6 +20,11 @@ import { type FC, type PropsWithChildren } from 'react';
 import { GlobalLayout } from '@coze-foundation/layout';
 import { useCreateBotAction } from '@coze-foundation/global';
 import { RequireAuthContainer } from '@coze-foundation/account-ui-adapter';
+import {
+  useRBACTypePermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 import { I18n } from '@coze-arch/i18n';
 import {
   IconCozPlusCircle,
@@ -39,6 +44,12 @@ export const GlobalLayoutComposed: FC<PropsWithChildren> = ({ children }) => {
   const hasSider = useHasSider();
   const { space_id } = useParams();
 
+  // 🔑 检查Agent的create权限
+  const hasAgentCreatePermission = useRBACTypePermission(
+    RBACResourceType.Agent,
+    RBACAction.Create,
+  );
+
   const { createBot, createBotModal } = useCreateBotAction({
     currentSpaceId: space_id,
   });
@@ -56,6 +67,7 @@ export const GlobalLayoutComposed: FC<PropsWithChildren> = ({ children }) => {
             tooltip: I18n.t('creat_tooltip_create'),
             icon: <IconCozPlusCircle />,
             onClick: createBot,
+            disabled: hasAgentCreatePermission === false, // 🔑 没有权限时禁用按钮
             dataTestId: 'layout_create-agent-button',
           },
         ]}

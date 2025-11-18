@@ -789,4 +789,28 @@ func (s *rbacServiceImpl) CopyResourcePermissions(
 	return nil
 }
 
+// GetUserPermissionsByResource 获取资源的所有用户权限
+func (s *rbacServiceImpl) GetUserPermissionsByResource(
+	ctx context.Context,
+	spaceID int64,
+	resourceType int,
+	resourceID string,
+) ([]*model.RbacUserResourcePermission, error) {
+	return s.permissionRepo.GetUserPermissionsByResource(ctx, spaceID, resourceType, resourceID)
+}
+
+// DeleteResourcePermissions 删除资源的用户权限
+// 用于在删除资源时清理权限表
+func (s *rbacServiceImpl) DeleteResourcePermissions(
+	ctx context.Context,
+	spaceID int64,
+	resourceType int,
+	resourceID string,
+) error {
+	if err := s.permissionRepo.DeleteUserResourcePermission(ctx, spaceID, resourceType, resourceID); err != nil {
+		return fmt.Errorf("failed to delete resource permissions: %w", err)
+	}
+	return nil
+}
+
 

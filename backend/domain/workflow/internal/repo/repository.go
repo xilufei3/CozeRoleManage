@@ -376,7 +376,7 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id int64) (err error) {
 		}
 	}()
 
-	return r.query.Transaction(func(tx *query.Query) error {
+	err = r.query.Transaction(func(tx *query.Query) error {
 		// Delete from workflow_meta
 		_, err := tx.WorkflowMeta.WithContext(ctx).Where(tx.WorkflowMeta.ID.Eq(id)).Delete()
 		if err != nil {
@@ -405,6 +405,41 @@ func (r *RepositoryImpl) Delete(ctx context.Context, id int64) (err error) {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// 🔑 清理Redis复制计数缓存
+	// Redis key格式: copy_workflow_redis_key_prefix:workflowID:userID
+	// 使用Scan命令查找所有匹配的key（避免Keys命令阻塞）
+	const copyWorkflowRedisKeyPrefix = "copy_workflow_redis_key_prefix"
+	pattern := fmt.Sprintf("%s:%d:*", copyWorkflowRedisKeyPrefix, id)
+	var cursor uint64
+	var keys []string
+	for {
+		var err error
+		var batch []string
+		var nextCursor uint64
+		batch, nextCursor, err = r.redis.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			logs.Warnf("failed to scan redis keys for workflow %d: %v", id, err)
+			break
+		}
+		keys = append(keys, batch...)
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	if len(keys) > 0 {
+		if err = r.redis.Del(ctx, keys...).Err(); err != nil {
+			logs.Warnf("failed to delete redis keys for workflow %d: %v", id, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully cleaned %d redis keys for workflow %d", len(keys), id)
+		}
+	}
+
+	return nil
 }
 
 func (r *RepositoryImpl) MDelete(ctx context.Context, ids []int64) error {

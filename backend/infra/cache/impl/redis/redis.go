@@ -142,6 +142,23 @@ func (r *redisImpl) Set(ctx context.Context, key string, value interface{}, expi
 	return r.client.Set(ctx, key, value, expiration)
 }
 
+// Scan implements cache.GenericCmdable.
+func (r *redisImpl) Scan(ctx context.Context, cursor uint64, match string, count int64) cache.ScanCmd {
+	return &scanCmdImpl{cmd: r.client.Scan(ctx, cursor, match, count)}
+}
+
+type scanCmdImpl struct {
+	cmd *redis.ScanCmd
+}
+
+func (s *scanCmdImpl) Err() error {
+	return s.cmd.Err()
+}
+
+func (s *scanCmdImpl) Result() (keys []string, cursor uint64, err error) {
+	return s.cmd.Result()
+}
+
 type pipelineImpl struct {
 	p redis.Pipeliner
 }
@@ -249,4 +266,9 @@ func (p *pipelineImpl) RPush(ctx context.Context, key string, values ...interfac
 // Set implements cache.Pipeliner.
 func (p *pipelineImpl) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) cache.StatusCmd {
 	return p.p.Set(ctx, key, value, expiration)
+}
+
+// Scan implements cache.Pipeliner.
+func (p *pipelineImpl) Scan(ctx context.Context, cursor uint64, match string, count int64) cache.ScanCmd {
+	return &scanCmdImpl{cmd: p.p.Scan(ctx, cursor, match, count)}
 }

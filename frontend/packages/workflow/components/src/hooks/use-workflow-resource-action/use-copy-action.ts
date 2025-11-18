@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+import { useNavigate } from 'react-router-dom';
+
 import { workflowApi } from '@coze-workflow/base';
+import { triggerRBACReload } from '@coze-common/auth';
 import { I18n } from '@coze-arch/i18n';
 import { Toast } from '@coze-arch/coze-design';
 import { CustomError } from '@coze-arch/bot-error';
 import { type ResourceInfo, ResType } from '@coze-arch/bot-api/plugin_develop';
-import { useNavigate } from 'react-router-dom';
 
 import { reporter, wait } from '@/utils';
 
@@ -72,6 +74,9 @@ export const useCopyAction = (props: CommonActionProps): CommonActionReturn => {
           workflowId: item.res_id,
         },
       });
+
+      // 🔑 触发权限重新加载，确保复制后的权限立即生效
+      triggerRBACReload();
 
       // Bottom line leader/follower delay
       await wait(300);

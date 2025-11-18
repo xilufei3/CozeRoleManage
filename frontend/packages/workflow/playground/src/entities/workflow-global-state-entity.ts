@@ -237,7 +237,9 @@ export class WorkflowGlobalStateEntity extends ConfigEntity<WorkflowGlobalState>
     const hasSingleEditPermission = !isVcsMode && workflowInfo.creator?.self;
     const hasVcsEditPermission = isVcsMode && workflowInfo.vcsData?.can_edit;
     // 🔑 RBAC权限检查：无论单人还是多人模式，都检查can_edit字段（后端已注入RBAC权限）
-    const hasRBACEditPermission = workflowInfo.vcsData?.can_edit !== false;
+    // 如果vcsData不存在或can_edit未定义，默认允许编辑（新资源默认有所有权限）
+    // 只有当can_edit明确为false时，才禁止编辑
+    const hasRBACEditPermission = workflowInfo.vcsData?.can_edit ?? true;
 
     console.log('[Workflow Global State] 权限判断:', {
       workflowId,

@@ -102,6 +102,7 @@
     "@coze-arch/report-tti": "workspace:*",
     "@coze-arch/tea": "workspace:*",
     "@coze-common/assets": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/biz-components": "workspace:*",
     "@coze-common/chat-area": "workspace:*",
     "@coze-common/chat-area-utils": "workspace:*",

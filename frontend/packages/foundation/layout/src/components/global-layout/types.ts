@@ -29,6 +29,7 @@ export interface LayoutButtonItem {
   dataTestId?: string;
   className?: string;
   iconClass?: string;
+  disabled?: boolean; // 🔑 是否禁用按钮
   renderButton?: (props: RenderButtonProps) => ReactNode;
 }
 

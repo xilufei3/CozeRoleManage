@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/coze-dev/coze-studio/backend/domain/rbac/entity"
+	"github.com/coze-dev/coze-studio/backend/domain/rbac/internal/dal/model"
 )
 
 // RBACService RBAC服务接口
@@ -94,6 +95,14 @@ type RBACService interface {
 	// CopyResourcePermissions 复制资源的权限到新资源
 	// 用于在复制资源时保持原有的权限设置
 	CopyResourcePermissions(ctx context.Context, sourceResourceType int, sourceResourceID string, targetResourceID string, spaceID int64) error
+
+	// DeleteResourcePermissions 删除资源的用户权限
+	// 用于在删除资源时清理权限表
+	DeleteResourcePermissions(ctx context.Context, spaceID int64, resourceType int, resourceID string) error
+
+	// GetUserPermissionsByResource 获取资源的所有用户权限
+	// 用于在删除资源前获取所有有权限的用户
+	GetUserPermissionsByResource(ctx context.Context, spaceID int64, resourceType int, resourceID string) ([]*model.RbacUserResourcePermission, error)
 }
 
 // ---------- 请求/响应结构体 ----------

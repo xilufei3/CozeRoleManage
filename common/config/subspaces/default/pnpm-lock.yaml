@@ -6291,6 +6291,9 @@ importers:
       '@coze-common/assets':
         specifier: workspace:*
         version: link:../../common/assets
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../common/auth
       '@coze-common/biz-components':
         specifier: workspace:*
         version: link:../../common/biz-components
@@ -16469,6 +16472,9 @@ importers:
       '@coze-arch/logger':
         specifier: workspace:*
         version: link:../../arch/logger
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../common/auth
       '@coze-foundation/account-adapter':
         specifier: workspace:*
         version: link:../account-adapter

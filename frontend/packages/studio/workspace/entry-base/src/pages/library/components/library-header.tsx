@@ -16,23 +16,21 @@
 
 import React, { useMemo } from 'react';
 
-import { I18n } from '@coze-arch/i18n';
-import { IconCozPlus } from '@coze-arch/coze-design/icons';
-import { Button, Menu } from '@coze-arch/coze-design';
-import { ResType } from '@coze-arch/bot-api/plugin_develop';
 import {
   useRBACTypePermission,
   RBACResourceType,
   RBACAction,
 } from '@coze-common/auth';
+import { I18n } from '@coze-arch/i18n';
+import { IconCozPlus } from '@coze-arch/coze-design/icons';
+import { Button, Menu } from '@coze-arch/coze-design';
+import { ResType } from '@coze-arch/bot-api/plugin_develop';
 
 import { type LibraryEntityConfig } from '../types';
-import { mapResTypeToRBACType } from '../hooks/rbac-resource-type-mapper';
 
 export const LibraryHeader: React.FC<{
   entityConfigs: LibraryEntityConfig[];
 }> = ({ entityConfigs }) => {
-
   // 检查Plugin的create权限
   const hasPluginCreatePermission = useRBACTypePermission(
     RBACResourceType.Plugin,
@@ -64,34 +62,42 @@ export const LibraryHeader: React.FC<{
   );
 
   // 构建权限映射表
-  const permissionMap = useMemo(() => ({
-    [ResType.Plugin]: hasPluginCreatePermission,
-    [ResType.Workflow]: hasWorkflowCreatePermission,
-    [ResType.Knowledge]: hasKnowledgeCreatePermission,
-    [ResType.Prompt]: hasPromptCreatePermission,
-    [ResType.Database]: hasDatabaseCreatePermission,
-  }), [
-    hasPluginCreatePermission,
-    hasWorkflowCreatePermission,
-    hasKnowledgeCreatePermission,
-    hasPromptCreatePermission,
-    hasDatabaseCreatePermission,
-  ]);
+  const permissionMap = useMemo(
+    () => ({
+      [ResType.Plugin]: hasPluginCreatePermission,
+      [ResType.Workflow]: hasWorkflowCreatePermission,
+      [ResType.Knowledge]: hasKnowledgeCreatePermission,
+      [ResType.Prompt]: hasPromptCreatePermission,
+      [ResType.Database]: hasDatabaseCreatePermission,
+    }),
+    [
+      hasPluginCreatePermission,
+      hasWorkflowCreatePermission,
+      hasKnowledgeCreatePermission,
+      hasPromptCreatePermission,
+      hasDatabaseCreatePermission,
+    ],
+  );
 
-  // 过滤有权限的配置
-  const enabledConfigs = useMemo(() => {
-    return entityConfigs.filter(config => {
-      const resType = config.target?.[0];
-      if (resType === undefined) return true; // 如果没有target，默认显示
+  // 🔑 不过滤配置，而是保留所有配置用于禁用显示（而不是隐藏）
+  // 这样用户可以看到所有选项，但无权限的选项会被禁用
+  const allConfigs = useMemo(
+    () =>
+      entityConfigs.map(config => {
+        const resType = config.target?.[0];
+        if (resType === undefined) {
+          return { config, hasPermission: true }; // 如果没有target，默认有权限
+        }
 
-      const hasPermission = permissionMap[resType];
-      return hasPermission !== false; // undefined或true都显示
-    });
-  }, [entityConfigs, permissionMap]);
+        const hasPermission = permissionMap[resType];
+        return { config, hasPermission: hasPermission !== false };
+      }),
+    [entityConfigs, permissionMap],
+  );
 
   // 判断是否有任何可用的创建选项
-  const hasAnyCreatePermission = enabledConfigs.some(
-    config => config.renderCreateMenu,
+  const hasAnyCreatePermission = allConfigs.some(
+    item => item.config.renderCreateMenu && item.hasPermission,
   );
 
   return (
@@ -104,7 +110,24 @@ export const LibraryHeader: React.FC<{
         className="w-120px mt-4px mb-4px"
         render={
           <Menu.SubMenu mode="menu">
-            {enabledConfigs.map(config => config.renderCreateMenu?.() ?? null)}
+            {allConfigs.map(({ config, hasPermission }) => {
+              const menuItem = config.renderCreateMenu?.();
+              if (!menuItem) {
+                return null;
+              }
+              // 🔑 如果是React元素，根据权限添加disabled属性（而不是隐藏）
+              if (React.isValidElement(menuItem)) {
+                return React.cloneElement(
+                  menuItem as React.ReactElement<{ disabled?: boolean }>,
+                  {
+                    ...(menuItem as React.ReactElement<{ disabled?: boolean }>)
+                      .props,
+                    disabled: !hasPermission,
+                  },
+                );
+              }
+              return menuItem;
+            })}
           </Menu.SubMenu>
         }
       >

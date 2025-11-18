@@ -1,8 +1,8 @@
 # 🎯 AlayaFlow RBAC 权限管理系统 - 完整实现文档
 
-> **版本**: v1.0
-> **更新日期**: 2025-11-07
-> **状态**: ✅ 全部完成并优化
+> **版本**: v1.1
+> **更新日期**: 2025-11-17
+> **状态**: ✅ 全部完成并优化（包含用户直接权限）
 
 ---
 
@@ -26,7 +26,9 @@
 ✅ **角色管理**: 创建、编辑、删除角色
 ✅ **用户角色分配**: 为用户分配/移除角色
 ✅ **细粒度权限配置**: 支持"所有资源"和"具体资源"两级权限
+✅ **用户直接权限**: 支持直接为用户分配权限（资源创建者自动获得权限）
 ✅ **权限继承**: 具体资源自动继承"所有资源"的权限
+✅ **权限合并**: 角色权限和直接权限自动合并（取并集）
 ✅ **6种资源类型**: Agent、Plugin、Workflow、Knowledge、Prompt、Database
 ✅ **权限验证**: 后端自动过滤非法操作，前端智能显示
 
@@ -670,14 +672,30 @@ if (!isAllResources && allResourceActions.size > 0) {
 
 **核心规则**: 具体资源的有效权限 = 所有资源的权限 ∪ 具体资源的额外权限
 
+**权限合并规则**: 用户最终权限 = 角色权限 ∪ 直接权限（取并集）
+
 ### 示例说明
 
-**场景**:
+**场景1: 角色权限继承**:
 - 角色 A: 对"所有 Agent"有 `read`, `execute` 权限
 - 角色 A: 对"Agent-123"有 `create` 权限
 
 **结果**:
 - 用户拥有角色 A 时，对 Agent-123 的有效权限为: `read`, `execute`, `create`
+
+**场景2: 角色权限 + 直接权限合并**:
+- 角色 A: 对"所有 Agent"有 `read`, `execute` 权限
+- 用户直接权限: 对"Agent-123"有 `update`, `delete` 权限（资源创建者）
+
+**结果**:
+- 用户对 Agent-123 的有效权限为: `read`, `execute`, `update`, `delete`（角色权限 ∪ 直接权限）
+
+**场景3: 用户创建的资源**:
+- 用户创建了 Agent-456，系统自动分配直接权限: `read`, `update`, `delete`, `execute`
+- 用户没有相关角色权限
+
+**结果**:
+- 用户对 Agent-456 的有效权限为: `read`, `update`, `delete`, `execute`（仅直接权限）
 
 ### 实现位置
 
@@ -721,7 +739,11 @@ const mergedActions = [...allResourceActions, ...specificActions];
 **文件**: `frontend/apps/coze-studio/src/pages/system/user-management.tsx`
 
 ```typescript
-// 合并显示所有权限
+// 分离角色权限和直接权限
+const rolePermissions = permissions.filter(p => p.role_id !== '0');
+const directPermissions = permissions.filter(p => p.role_id === '0');
+
+// 合并显示所有权限（角色权限 + 直接权限）
 const allResourceActions = new Set(allResourcePerm?.actions || []);
 let mergedActions = [...perm.actions];
 
@@ -738,6 +760,11 @@ if (!isAllResources && allResourceActions.size > 0) {
   <Text type="secondary">(包含所有资源权限)</Text>
 )}
 ```
+
+**用户创建资源的特殊处理**:
+- 如果资源是用户创建的（`creator_id === currentUserId`），显示"我创建的"标签
+- 用户创建的资源会合并显示角色权限和直接权限
+- 非用户创建的资源只显示角色权限（直接权限理论上不应该存在）
 
 ---
 
@@ -976,6 +1003,15 @@ if (resourceType.id === 4) {
         "actions": ["create"],
         "created_at": 1699334400000,
         "updated_at": 1699334400000
+      },
+      {
+        "id": "3",
+        "role_id": "0",
+        "resource_type": 4,
+        "resource_id": "789",
+        "actions": ["read", "update", "delete", "execute"],
+        "created_at": 1699334400000,
+        "updated_at": 1699334400000
       }
     ]
   }
@@ -983,12 +1019,111 @@ if (resourceType.id === 4) {
 ```
 
 **说明**:
-- `permissions`: 按资源类型聚合的权限（已合并继承）
+- `permissions`: 按资源类型聚合的权限（已合并角色权限和直接权限）
 - `detail_permissions`: 详细权限列表（包含资源ID）
+  - `role_id != "0"`: 角色权限（通过角色获得的权限）
+  - `role_id = "0"`: 用户直接权限（直接分配给用户的权限，通常用于资源创建者）
+- **权限合并规则**: 最终权限 = 角色权限 ∪ 直接权限（取并集）
+
+### 用户直接权限 API 🆕
+
+#### 说明
+
+用户直接权限是指直接分配给用户的权限，不通过角色。主要用于：
+1. **资源创建者权限**: 用户创建资源时，自动获得该资源的所有权限
+2. **资源复制权限**: 复制资源时，继承原资源的所有直接权限
+3. **特殊权限分配**: 管理员可以为特定用户分配特定资源的权限
+
+**数据存储**: `rbac_user_resource_permission` 表
+
+**权限标识**: 在 `detail_permissions` 中，`role_id = "0"` 表示直接权限
+
+#### 自动分配机制
+
+**创建资源时自动分配**:
+- 当用户创建资源时，系统会自动调用 `AssignCreatorPermissions` 方法
+- 为创建者分配该资源的所有默认权限（根据资源类型确定）
+- 已集成的资源类型：Agent、Plugin、Workflow、Knowledge、Prompt、Database
+
+**复制资源时继承权限**:
+- 当用户复制资源时，系统会自动调用 `CopyResourcePermissions` 方法
+- 将原资源的所有直接权限复制到新资源
+- 已集成的资源类型：Workflow
+
+**注意**: 这些是内部方法，不是公开的 REST API，由资源创建/复制流程自动调用。
+
+### 权限检查 API
+
+#### 1. 单个权限检查
+
+**接口**: `POST /api/rbac/check`
+
+**请求**:
+```json
+{
+  "user_id": "1",
+  "space_id": "123",
+  "resource_type": 4,
+  "resource_id": "456",
+  "action": "update"
+}
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "has_permission": true
+  }
+}
+```
+
+**说明**:
+- 检查用户是否有权限执行指定操作
+- 会同时检查角色权限和直接权限（取并集）
+- 支持"所有资源"权限（`resource_id = 0`）
+
+#### 2. 批量权限检查
+
+**接口**: `POST /api/rbac/batch-check`
+
+**请求**:
+```json
+{
+  "user_id": "1",
+  "space_id": "123",
+  "checks": [
+    {
+      "resource_type": 4,
+      "resource_id": "456",
+      "action": "update"
+    },
+    {
+      "resource_type": 4,
+      "resource_id": "456",
+      "action": "delete"
+    }
+  ]
+}
+```
+
+**响应**:
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "4_456_update": true,
+    "4_456_delete": false
+  }
+}
+```
 
 ### 资源查询 API
 
-#### 获取 Agent 列表
+#### 1. 获取 Agent 列表
 
 **接口**: `GET /api/rbac/resources/agents?space_id={space_id}`
 
@@ -1002,13 +1137,45 @@ if (resourceType.id === 4) {
       {
         "id": "456",
         "name": "Customer Service Bot",
-        "description": "AI assistant"
+        "description": "AI assistant",
+        "creator_id": "1"
       }
     ],
     "total": 1
   }
 }
 ```
+
+**说明**:
+- 返回空间下的所有 Agent 列表
+- 包含 `creator_id` 字段，用于判断资源是否为当前用户创建
+
+#### 2. 获取资源权限详情
+
+**接口**: `GET /api/rbac/resources/:resourceId/permissions?resource_type=4`
+
+**响应**:
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "resource_type": 4,
+    "resource_id": "456",
+    "permissions": [
+      {
+        "role_id": "10",
+        "role_name": "开发者",
+        "permissions": ["read", "execute"]
+      }
+    ]
+  }
+}
+```
+
+**说明**:
+- 返回所有角色对该资源的权限
+- 不包括用户直接权限（直接权限在用户权限详情中查看）
 
 ---
 

@@ -32,10 +32,12 @@ import (
 	"github.com/coze-dev/coze-studio/backend/api/model/data/database/table"
 	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/crossdomain/agent"
 	crossdatabase "github.com/coze-dev/coze-studio/backend/crossdomain/database"
 	database "github.com/coze-dev/coze-studio/backend/crossdomain/database/model"
 	pluginConsts "github.com/coze-dev/coze-studio/backend/crossdomain/plugin/consts"
+	rbacEntity "github.com/coze-dev/coze-studio/backend/domain/rbac/entity"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/entity"
 	singleagent "github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/service"
 	variableEntity "github.com/coze-dev/coze-studio/backend/domain/memory/variables/entity"
@@ -390,6 +392,19 @@ func (s *SingleAgentApplicationService) DeleteAgentDraft(ctx context.Context, re
 		return nil, err
 	}
 
+	// 🔑 清理权限表
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.DeleteResourcePermissions(
+			ctx,
+			req.GetSpaceID(),
+			4, // ResourceTypeAgent
+			strconv.FormatInt(req.GetBotID(), 10),
+		)
+		if err != nil {
+			logs.CtxErrorf(ctx, "failed to delete permissions for agent %d: %v", req.GetBotID(), err)
+		}
+	}
+
 	err = s.appContext.EventBus.PublishProject(ctx, &searchEntity.ProjectDomainEvent{
 		OpType: searchEntity.Deleted,
 		Project: &searchEntity.ProjectDocument{
@@ -546,10 +561,32 @@ func (s *SingleAgentApplicationService) ValidateAgentDraftAccess(ctx context.Con
 		return do, nil
 	}
 
-	if do.CreatorID != *uid {
-		logs.CtxErrorf(ctx, "user(%d) is not the creator(%d) of the agent draft", *uid, do.CreatorID)
-
-		return do, errorx.New(errno.ErrAgentPermissionCode, errorx.KV("detail", "you are not the agent owner"))
+	// 🔑 使用RBAC检查read权限，而不是只检查创建者
+	if apprbac.RBACService != nil {
+		check := &rbacEntity.PermissionCheck{
+			UserID:       *uid,
+			SpaceID:      do.SpaceID,
+			ResourceType: 4, // ResourceTypeAgent
+			ResourceID:   agentID,
+			Action:       "read",
+		}
+		hasPermission, err := apprbac.RBACService.CheckPermission(ctx, check)
+		if err != nil {
+			logs.CtxErrorf(ctx, "Failed to check RBAC read permission for agent %d: %v", agentID, err)
+			// 如果RBAC检查失败，降级到创建者检查
+			if do.CreatorID != *uid {
+				return do, errorx.New(errno.ErrAgentPermissionCode, errorx.KV("detail", "you are not the agent owner"))
+			}
+		} else if !hasPermission {
+			logs.CtxWarnf(ctx, "User %d does not have read permission for agent %d", *uid, agentID)
+			return do, errorx.New(errno.ErrAgentPermissionCode, errorx.KV("msg", "unauthorized access: no read permission"))
+		}
+	} else {
+		// 如果RBAC服务不可用，降级到创建者检查
+		if do.CreatorID != *uid {
+			logs.CtxErrorf(ctx, "user(%d) is not the creator(%d) of the agent draft", *uid, do.CreatorID)
+			return do, errorx.New(errno.ErrAgentPermissionCode, errorx.KV("detail", "you are not the agent owner"))
+		}
 	}
 
 	return do, nil

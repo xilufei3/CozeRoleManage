@@ -16,18 +16,47 @@
 
 import { useEffect, useMemo } from 'react';
 
-import { RBACResourceType, RBACAction, RESOURCE_ACTIONS_MAP } from './constants';
+import type { Permission, ResourcePermissions, UserPermissions } from './types';
 import { useRBACPermissionStore } from './rbac-store';
-import type { ResourcePermissions } from './types';
+import {
+  type RBACResourceType,
+  RBACAction,
+  RESOURCE_ACTIONS_MAP,
+} from './constants';
+
+/**
+ * 计算权限数据的hash值，用于比较权限是否有变化
+ */
+const calculatePermissionHash = (
+  permissions: Permission[] | undefined,
+): string => {
+  if (!permissions) {
+    return '';
+  }
+  return JSON.stringify(
+    permissions
+      .map(p => ({
+        resource_type: p.resource_type,
+        resource_id: p.resource_id,
+        actions: [...p.actions].sort(),
+      }))
+      .sort(
+        (a, b) =>
+          a.resource_type - b.resource_type ||
+          String(a.resource_id).localeCompare(String(b.resource_id)),
+      ),
+  );
+};
 
 /**
  * 从后端加载用户权限
  * 注意：此函数需要传入axios实例，因为在common包中无法直接导入@coze-arch/bot-http
  */
-export const createLoadUserPermissions = (axiosInstance: {
-  get: (url: string, config?: unknown) => Promise<{ data: unknown }>;
-}) => {
-  return async (userId: string, spaceId: string) => {
+export const createLoadUserPermissions =
+  (axiosInstance: {
+    get: (url: string, config?: unknown) => Promise<{ data: unknown }>;
+  }) =>
+  async (userId: string, spaceId: string) => {
     try {
       const res = await axiosInstance.get(
         `/api/rbac/users/${userId}/permissions`,
@@ -50,7 +79,6 @@ export const createLoadUserPermissions = (axiosInstance: {
       return null;
     }
   };
-};
 
 /**
  * 初始化RBAC权限（在用户登录或切换空间时调用）
@@ -65,8 +93,12 @@ export const useInitRBACPermissions = (
     get: (url: string, config?: unknown) => Promise<{ data: unknown }>;
   },
 ) => {
-  const { setUserPermissions, setLoading, setError, setContext } =
-    useRBACPermissionStore();
+  const setUserPermissions = useRBACPermissionStore(
+    state => state.setUserPermissions,
+  );
+  const setLoading = useRBACPermissionStore(state => state.setLoading);
+  const setError = useRBACPermissionStore(state => state.setError);
+  const setContext = useRBACPermissionStore(state => state.setContext);
   const reloadFlag = useRBACPermissionStore(state => state.reloadFlag);
 
   useEffect(() => {
@@ -82,18 +114,22 @@ export const useInitRBACPermissions = (
       try {
         console.log('[RBAC] 开始加载权限...', { userId, spaceId, reloadFlag });
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
         setLoading(true);
         setContext(spaceId, userId);
 
         const loadUserPermissions = createLoadUserPermissions(axiosInstance);
         const permissions = await loadUserPermissions(userId, spaceId);
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         if (permissions && typeof permissions === 'object') {
           // 类型断言，因为从API返回的数据符合UserPermissions接口
-          setUserPermissions(permissions as import('./types').UserPermissions);
+          setUserPermissions(permissions as UserPermissions);
           console.log('[RBAC] 权限加载成功', permissions);
         } else {
           setError('加载权限失败');
@@ -114,27 +150,108 @@ export const useInitRBACPermissions = (
     };
     // 注意：不要把 axiosInstance 放在依赖数组中，它是稳定的引用
     // reloadFlag 变化时会触发重新加载
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, spaceId, reloadFlag]);
+  }, [
+    userId,
+    spaceId,
+    reloadFlag,
+    setLoading,
+    setContext,
+    setUserPermissions,
+    setError,
+  ]);
 
   // 🔑 监听 reloadFlag 变化时，主动重新拉取权限
   useEffect(() => {
-    if (!userId || !spaceId || !axiosInstance) return;
+    if (!userId || !spaceId || !axiosInstance) {
+      return;
+    }
     const loadUserPermissions = createLoadUserPermissions(axiosInstance);
     let isMounted = true;
     (async () => {
       setLoading(true);
       const permissions = await loadUserPermissions(userId, spaceId);
-      if (!isMounted) return;
+      if (!isMounted) {
+        return;
+      }
       if (permissions && typeof permissions === 'object') {
-        setUserPermissions(permissions as import('./types').UserPermissions);
+        setUserPermissions(permissions as UserPermissions);
       }
       setLoading(false);
     })();
     return () => {
       isMounted = false;
     };
-  }, [reloadFlag]);
+  }, [reloadFlag, setLoading, setUserPermissions]);
+
+  // 🔑 添加权限轮询机制，定期检查权限是否有更新（每30秒检查一次）
+  // 这样管理员修改权限后，用户端可以自动检测到并更新
+  usePermissionPolling({ userId, spaceId, axiosInstance, setUserPermissions });
+};
+
+/**
+ * 权限轮询 Hook - 定期检查权限是否有更新
+ */
+const usePermissionPolling = (params: {
+  userId: string;
+  spaceId: string;
+  axiosInstance:
+    | { get: (url: string, config?: unknown) => Promise<{ data: unknown }> }
+    | undefined;
+  setUserPermissions: (permissions: UserPermissions) => void;
+}) => {
+  const { userId, spaceId, axiosInstance, setUserPermissions } = params;
+  useEffect(() => {
+    if (!userId || !spaceId || !axiosInstance) {
+      return;
+    }
+
+    const POLL_INTERVAL = 30000; // 30秒轮询一次
+    let isMounted = true;
+    let pollTimer: NodeJS.Timeout | null = null;
+
+    const pollPermissions = async () => {
+      if (!isMounted) {
+        return;
+      }
+      try {
+        const loadUserPermissions = createLoadUserPermissions(axiosInstance);
+        const permissions = await loadUserPermissions(userId, spaceId);
+        if (!isMounted) {
+          return;
+        }
+
+        // 检查权限是否有变化（通过比较权限数据的hash）
+        const { userPermissions } = useRBACPermissionStore.getState();
+        if (permissions && typeof permissions === 'object') {
+          const permData = permissions as UserPermissions;
+          // 简单的变化检测：比较detail_permissions的长度和内容
+          const currentHash = calculatePermissionHash(
+            userPermissions?.detail_permissions,
+          );
+          const newHash = calculatePermissionHash(permData.detail_permissions);
+
+          // 如果权限有变化，更新权限数据
+          if (currentHash !== newHash) {
+            console.log('[RBAC Poll] 检测到权限变化，自动更新权限');
+            setUserPermissions(permData);
+          }
+        }
+      } catch (error) {
+        // 轮询失败不显示错误，避免干扰用户体验
+        console.warn('[RBAC Poll] 权限轮询失败:', error);
+      }
+    };
+
+    // 延迟启动轮询，避免与初始加载冲突
+    pollTimer = setInterval(pollPermissions, POLL_INTERVAL);
+
+    return () => {
+      isMounted = false;
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [userId, spaceId, axiosInstance, setUserPermissions]);
 };
 
 /**
@@ -148,11 +265,10 @@ export const useRBACPermission = (
   resourceType: RBACResourceType,
   resourceId: string,
   action: RBACAction,
-): boolean | undefined => {
-  return useRBACPermissionStore(state =>
+): boolean | undefined =>
+  useRBACPermissionStore(state =>
     state.checkPermission(resourceType, resourceId, action),
   );
-};
 
 /**
  * 检查资源类型级别的权限（用于create等不需要具体资源ID的操作）
@@ -163,11 +279,10 @@ export const useRBACPermission = (
 export const useRBACTypePermission = (
   resourceType: RBACResourceType,
   action: RBACAction,
-): boolean | undefined => {
-  return useRBACPermissionStore(state =>
+): boolean | undefined =>
+  useRBACPermissionStore(state =>
     state.checkPermission(resourceType, '0', action),
   );
-};
 
 /**
  * 获取资源的所有权限（返回权限对象）
@@ -221,9 +336,7 @@ export const useRBACBatchPermissions = <
 
     // 降级策略1：如果没有加载用户权限，返回空Map（显示所有资源）
     if (!userPermissions) {
-      console.log(
-        '[RBAC Batch] 权限未加载，返回空Map，将使用降级策略',
-      );
+      console.log('[RBAC Batch] 权限未加载，返回空Map，将使用降级策略');
       return permissionsMap;
     }
 
@@ -241,11 +354,7 @@ export const useRBACBatchPermissions = <
       return permissionsMap;
     }
 
-    console.log(
-      '[RBAC Batch] 为',
-      resources.length,
-      '个资源批量检查权限',
-    );
+    console.log('[RBAC Batch] 为', resources.length, '个资源批量检查权限');
 
     resources.forEach(resource => {
       const resourceId = resource.res_id || resource.id;
@@ -257,9 +366,11 @@ export const useRBACBatchPermissions = <
 
       let actions = getResourcePermissions(resourceType, resourceId);
 
-      const currentUserId = (userPermissions as any)?.user_id;
+      const currentUserId = userPermissions?.user_id;
       const isSelfCreator =
-        currentUserId && String((resource as any)?.creator_id) === String(currentUserId);
+        currentUserId &&
+        String((resource as { creator_id?: string | number })?.creator_id) ===
+          String(currentUserId);
       if (isSelfCreator) {
         const possibleActions = RESOURCE_ACTIONS_MAP[resourceType] || [];
         actions = Array.from(
@@ -305,9 +416,7 @@ export const useRBACHasAnyPermission = (
 
   return useMemo(
     () =>
-      actions.some(action =>
-        checkPermission(resourceType, resourceId, action),
-      ),
+      actions.some(action => checkPermission(resourceType, resourceId, action)),
     [checkPermission, resourceType, resourceId, actions],
   );
 };
@@ -336,4 +445,3 @@ export const useRBACHasAllPermissions = (
     [checkPermission, resourceType, resourceId, actions],
   );
 };
-

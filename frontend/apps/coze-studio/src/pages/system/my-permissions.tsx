@@ -478,30 +478,54 @@ export default function MyPermissions() {
                                 </td>
                               ))}
                             </tr>
-                            {resources.map(resource => (
-                              <tr
-                                key={resource.id}
-                                className="border-t border-gray-100/70 dark:border-gray-700/50"
-                              >
-                                <td className="max-w-[280px] truncate px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {resource.name}
-                                </td>
-                                {resourceType.actions.map(action => (
-                                  <td
-                                    key={`${resource.id}-${action}`}
-                                    className="px-4 py-2 text-sm text-center text-gray-600 dark:text-gray-200"
-                                  >
-                                    {renderPermissionBadge(
-                                      hasPermission(
-                                        resourceType.id,
-                                        resource.id,
-                                        action,
-                                      ),
-                                    )}
+                            {resources.map(resource => {
+                              // 🔑 判断是否是当前用户创建的
+                              const isCreatedByUser =
+                                userId &&
+                                resource.creator_id &&
+                                String(resource.creator_id) === String(userId);
+                              return (
+                                <tr
+                                  key={resource.id}
+                                  className="border-t border-gray-100/70 dark:border-gray-700/50"
+                                >
+                                  <td className="max-w-[280px] px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="truncate">
+                                        {resource.name}
+                                      </span>
+                                      {isCreatedByUser ? (
+                                        <Tag
+                                          size="small"
+                                          className="!bg-transparent !border-gray-300 !text-gray-600 flex-shrink-0"
+                                          style={{
+                                            backgroundColor: 'transparent',
+                                            border: '1px solid #d9d9d9',
+                                            color: '#666',
+                                          }}
+                                        >
+                                          我创建的
+                                        </Tag>
+                                      ) : null}
+                                    </div>
                                   </td>
-                                ))}
-                              </tr>
-                            ))}
+                                  {resourceType.actions.map(action => (
+                                    <td
+                                      key={`${resource.id}-${action}`}
+                                      className="px-4 py-2 text-sm text-center text-gray-600 dark:text-gray-200"
+                                    >
+                                      {renderPermissionBadge(
+                                        hasPermission(
+                                          resourceType.id,
+                                          resource.id,
+                                          action,
+                                        ),
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

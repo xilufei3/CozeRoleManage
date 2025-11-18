@@ -51,6 +51,7 @@ type GenericCmdable interface {
 	Del(ctx context.Context, keys ...string) IntCmd
 	Exists(ctx context.Context, keys ...string) IntCmd
 	Expire(ctx context.Context, key string, expiration time.Duration) BoolCmd
+	Scan(ctx context.Context, cursor uint64, match string, count int64) ScanCmd // 🔑 添加Scan方法用于扫描Redis keys
 }
 
 type Pipeliner interface {
@@ -109,4 +110,10 @@ type StringCmd interface {
 type StringSliceCmd interface {
 	baseCmd
 	Result() ([]string, error)
+}
+
+// ScanCmd Scan命令的返回结果
+type ScanCmd interface {
+	baseCmd
+	Result() (keys []string, cursor uint64, err error)
 }

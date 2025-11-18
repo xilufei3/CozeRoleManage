@@ -46,8 +46,8 @@ import {
   CheckType,
 } from '@coze-workflow/base/api';
 import { I18n } from '@coze-arch/i18n';
-import { CustomError } from '@coze-arch/bot-error';
 import { Toast } from '@coze-arch/coze-design';
+import { CustomError } from '@coze-arch/bot-error';
 
 import { reporter, wait } from '../utils';
 import { type WorkflowInfo, WorkflowModalFrom } from '../types';
@@ -387,6 +387,10 @@ export function useWorkflowList({
           workflowId: item.workflow_id,
         },
       });
+
+      // 🔑 触发权限重新加载，确保复制后的权限立即生效
+      const { triggerRBACReload } = await import('@coze-common/auth');
+      triggerRBACReload();
 
       // Bottom line leader/follower delay
       await wait(300);

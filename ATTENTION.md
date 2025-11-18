@@ -37,7 +37,29 @@ import { axiosInstance } from '@coze-arch/bot-http';
 并且所有的 request.xxx 改为 axiosInstance.xxx，所有的 res.data 改为 res.data.data (因为响应格式不同)
 ```
 
-#### 每次运行使用node22的版本，不然会运行失败（启动zsh就行了，应该是配置了node22版本）
+#### Node.js 版本管理
+
+**问题**: Git commit hook 需要 Node.js 22，但默认 shell 可能使用旧版本
+**原因**: zsh 配置了 `${HOME}/tools/nodejs/bin` 路径，包含 Node.js 22
+**解决**: 在执行 git commit 前，需要先 source zsh 配置
+
+```bash
+# ✅ 正确：使用 zsh 执行 git commit（会自动加载 node 22）
+zsh -c "cd /path/to/project && git commit -m 'message'"
+
+# ✅ 或者：在 zsh shell 中直接执行
+source ~/.zshrc  # 如果不在 zsh 中
+git commit -m 'message'
+
+# ❌ 错误：直接执行可能使用旧版本 Node.js
+git commit -m 'message'  # 可能失败，因为 Node.js 版本太旧
+```
+
+**配置位置**: `~/.zshrc` 中有 `export PATH="${HOME}/tools/nodejs/bin:${PATH}"`
+**经验**:
+- 所有需要 Node.js 22 的命令都应该通过 zsh 执行
+- AI 助手在执行 git commit 时应该使用 `zsh -c "cd ... && git commit ..."` 格式
+- **不要修改 git hooks 文件**，应该在执行命令时使用正确的 shell
 
 #### axios 拦截器已经解包了响应，所以 res 本身就是数据，而不是 res.data。
 
@@ -303,3 +325,108 @@ type ListRolesRequest struct {
     SpaceID int64 `query:"space_id,string" binding:"required"`  // 查询参数
 }
 ```
+
+#### Workflow 复制命名和 Redis 缓存清理
+
+**问题**: 删除 workflow 后，Redis 中的复制计数缓存未清理，导致复制序号不重置（如删除后仍从 2、3、4 开始）
+
+**解决**:
+1. 在 `cache.Cmdable` 接口中添加 `Scan` 方法
+2. 在 workflow 删除时使用 `Scan` 扫描并删除所有匹配的 Redis key
+
+**关键代码**:
+```go
+// backend/infra/cache/cache.go - 添加 Scan 方法到接口
+type GenericCmdable interface {
+    // ...
+    Scan(ctx context.Context, cursor uint64, match string, count int64) ScanCmd
+}
+
+// backend/domain/workflow/internal/repo/repository.go - 删除时清理缓存
+const copyWorkflowRedisKeyPrefix = "copy_workflow_redis_key_prefix"
+pattern := fmt.Sprintf("%s:%d:*", copyWorkflowRedisKeyPrefix, id)
+var cursor uint64
+var keys []string
+for {
+    batch, nextCursor, err := r.redis.Scan(ctx, cursor, pattern, 100).Result()
+    // ... 收集所有匹配的 key
+    if cursor == 0 {
+        break
+    }
+}
+if len(keys) > 0 {
+    r.redis.Del(ctx, keys...)
+}
+```
+
+**注意**: Redis key 格式为 `copy_workflow_redis_key_prefix:workflowID:userID`，删除时需要扫描所有匹配的 key
+
+#### 权限实时更新机制
+
+**问题**: 管理员修改权限后，用户端需要手动刷新才能生效，用户体验差
+
+**解决**: 添加权限轮询机制，前端每 30 秒自动检查权限是否有更新
+
+**实现位置**:
+- `frontend/packages/common/auth/src/rbac/use-rbac-permission.ts`
+
+**关键代码**:
+```typescript
+// 添加权限轮询机制，定期检查权限是否有更新（每30秒检查一次）
+useEffect(() => {
+  if (!userId || !spaceId || !axiosInstance) return;
+
+  const POLL_INTERVAL = 30000; // 30秒轮询一次
+  const pollTimer = setInterval(async () => {
+    const permissions = await loadUserPermissions(userId, spaceId);
+    // 通过比较权限数据的 hash 判断是否有变化
+    const currentHash = calculatePermissionHash(userPermissions?.detail_permissions);
+    const newHash = calculatePermissionHash(permissions.detail_permissions);
+
+    if (currentHash !== newHash) {
+      setUserPermissions(permissions);
+    }
+  }, POLL_INTERVAL);
+
+  return () => clearInterval(pollTimer);
+}, [userId, spaceId, axiosInstance]);
+```
+
+**注意事项**:
+- 轮询间隔为 30 秒，平衡实时性和服务器负载
+- 通过 hash 比较判断变化，仅在变化时更新，避免不必要的 UI 刷新
+- 轮询失败不显示错误，避免干扰用户体验
+
+#### ESLint 代码规范修复
+
+**问题**: 函数过长、使用 `any` 类型、`import()` 类型注解等问题
+
+**解决**:
+1. **函数长度限制**: 将长函数拆分为多个小函数（如 `calculatePermissionHash`）
+2. **类型定义**: 使用具体的类型接口，避免 `any`
+3. **类型导入**: 使用直接导入类型，避免 `import('./types').UserPermissions`
+
+**关键修复**:
+```typescript
+// ❌ 错误：函数过长，使用 any 类型
+const pollPermissions = async () => {
+  // 173 行代码...
+  const newHash = permData.detail_permissions.map((p: any) => ...)
+  setUserPermissions(permissions as import('./types').UserPermissions);
+}
+
+// ✅ 正确：提取函数，使用具体类型
+const calculatePermissionHash = (permissions: Permission[] | undefined): string => {
+  // 提取的逻辑
+};
+
+const pollPermissions = async () => {
+  const newHash = calculatePermissionHash(permData.detail_permissions);
+  setUserPermissions(permData); // 直接使用导入的类型
+}
+```
+
+**经验**:
+- 每个 React 组件的最大代码量不超过 150 行（已在 ATTENTION.md 中）
+- 函数也应该遵循类似的长度限制，超过时提取为独立函数
+- 始终使用具体类型，避免 `any`

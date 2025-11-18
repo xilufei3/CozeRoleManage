@@ -28,6 +28,7 @@ import {
 export interface ResourceItem {
   id: string;
   name: string;
+  creator_id?: string; // 🔑 创建者ID，用于判断是否是自己创建的
 }
 
 export interface FetchResourceMapResult {
@@ -48,6 +49,7 @@ export async function fetchResourcesByType(
     return (data.agents || []).map(agent => ({
       id: (agent.id || '').toString(),
       name: agent.name || '未命名 Agent',
+      creator_id: agent.creator_id || '', // 🔑 保存创建者ID
     }));
   }
 
@@ -55,6 +57,7 @@ export async function fetchResourcesByType(
   return (data.resource_list || []).map((resource: SpaceResource) => ({
     id: (resource.res_id || resource.id || '').toString(),
     name: resource.name || '未命名资源',
+    creator_id: resource.creator_id || '', // 🔑 保存创建者ID
   }));
 }
 

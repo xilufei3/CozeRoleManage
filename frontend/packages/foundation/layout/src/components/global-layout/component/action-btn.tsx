@@ -31,10 +31,14 @@ export const GlobalLayoutActionBtn: FC<LayoutButtonItem> = ({
   className,
   portal,
   renderButton,
+  disabled,
 }) => {
   const [visible, setVisible] = useState(false);
 
   const onButtonClick = () => {
+    if (disabled) {
+      return;
+    } // 🔑 如果禁用，不执行点击
     setVisible(false);
     reportNavClick(tooltip);
     onClick?.();
@@ -56,12 +60,14 @@ export const GlobalLayoutActionBtn: FC<LayoutButtonItem> = ({
           className={classNames(
             'text-[20px] coz-fg-primary h-[20px]',
             iconClass,
+            disabled && 'opacity-50', // 🔑 禁用时降低透明度
           )}
         >
           {icon}
         </div>
       }
       onClick={onButtonClick}
+      disabled={disabled} // 🔑 传递disabled属性
       data-testid={dataTestId}
     />
   );

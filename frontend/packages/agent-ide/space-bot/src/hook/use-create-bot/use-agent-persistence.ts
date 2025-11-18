@@ -23,6 +23,7 @@ import { usePageRuntimeStore } from '@coze-studio/bot-detail-store/page-runtime'
 import { useCollaborationStore } from '@coze-studio/bot-detail-store/collaboration';
 import { useBotInfoStore } from '@coze-studio/bot-detail-store/bot-info';
 import { updateBotRequest } from '@coze-studio/bot-detail-store';
+import { triggerRBACReload } from '@coze-common/auth';
 import {
   REPORT_EVENTS as ReportEventNames,
   createReportEvent,
@@ -230,6 +231,9 @@ export const useAgentPersistence = ({
         content: I18n.t('bot_created_toast'),
         showClose: false,
       });
+      // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+      triggerRBACReload();
+      console.log('[Agent Create] 触发RBAC权限刷新');
       // Scenarios that are compatible with onSuccess callbacks as synchronization functions
       await onSuccess?.(resp.data?.bot_id, paramsSpaceId, {
         botName: values?.name,
