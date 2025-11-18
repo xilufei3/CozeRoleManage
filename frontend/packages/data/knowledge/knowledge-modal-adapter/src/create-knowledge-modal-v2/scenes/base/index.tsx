@@ -29,6 +29,7 @@ import { Button, Form, LoadingButton } from '@coze-arch/coze-design';
 import { useSpaceStore } from '@coze-arch/bot-studio-store';
 import { FormatType } from '@coze-arch/bot-api/memory';
 import { KnowledgeApi } from '@coze-arch/bot-api';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import styles from './index.module.less';
 
@@ -89,6 +90,9 @@ export const useCreateKnowledgeModalV2 = (
           onClick={async () => {
             beforeCreate?.(false);
             const datasetId = await createDataset();
+            // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+            triggerRBACReload();
+            console.log('[Knowledge Create] 触发RBAC权限刷新');
             if (onFinish) {
               onFinish(datasetId || '', unitType, false);
             } else {
@@ -104,6 +108,9 @@ export const useCreateKnowledgeModalV2 = (
           onClick={async () => {
             beforeCreate?.(true);
             const datasetId = await createDataset();
+            // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+            triggerRBACReload();
+            console.log('[Knowledge Create] 触发RBAC权限刷新');
             if (onFinish) {
               onFinish(datasetId || '', unitType, true);
             } else {

@@ -24,6 +24,7 @@
     "@coze-arch/coze-design": "0.0.6-alpha.346d77",
     "@coze-arch/i18n": "workspace:*",
     "@coze-arch/report-events": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/table-view": "workspace:*",
     "@coze-data/database-v2-adapter": "workspace:*",
     "@coze-data/database-v2-base": "workspace:*",

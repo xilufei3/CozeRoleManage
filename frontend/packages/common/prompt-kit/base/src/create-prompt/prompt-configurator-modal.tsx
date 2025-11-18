@@ -35,6 +35,7 @@ import {
 import { InputSlotWidget } from '@coze-common/editor-plugins/input-slot';
 import { ActionBar } from '@coze-common/editor-plugins/action-bar';
 import { I18n } from '@coze-arch/i18n';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import { PromptEditorRender } from '@/editor';
 
@@ -49,6 +50,11 @@ import {
 } from './components/footer-actions';
 
 import styles from './index.module.less';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 const MAX_NAME_LENGTH = IS_OVERSEA ? 40 : 20;
 const MAX_DESCRIPTION_LENGTH = IS_OVERSEA ? 100 : 50;
@@ -105,6 +111,14 @@ export const PromptConfiguratorModal = (
     description: '',
     prompt_text: '',
   });
+  const rbacCanEdit = editId
+    ? useRBACPermission(
+        RBACResourceType.Prompt,
+        String(editId),
+        RBACAction.Update,
+      )
+    : undefined;
+  const effectiveCanEdit = !!canEdit || rbacCanEdit === true;
   const handleSubmit = async (e: React.MouseEvent<Element, MouseEvent>) => {
     if (isSubmiting.current) {
       return;
@@ -165,6 +179,9 @@ export const PromptConfiguratorModal = (
       const id = modalMode === 'edit' ? editId : res?.data?.id;
       if (mode === 'create') {
         Toast.success(I18n.t('prompt_library_prompt_creat_successfully'));
+        // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+        triggerRBACReload();
+        console.log('[Prompt Create] 触发RBAC权限刷新');
       }
       onUpdateSuccess?.(mode, id);
       if (!id) {

@@ -84,6 +84,16 @@ type RBACService interface {
 
 	// GetSpaceAgents 获取空间下的 Agent 列表
 	GetSpaceAgents(ctx context.Context, spaceID int64) ([]*AgentBasicInfo, error)
+
+	// ---------- 资源创建辅助 ----------
+
+	// AssignCreatorPermissions 给资源创建者分配所有权限
+	// 用于在创建资源时自动授予创建者完整权限
+	AssignCreatorPermissions(ctx context.Context, userID string, spaceID int64, resourceType int, resourceID string) error
+
+	// CopyResourcePermissions 复制资源的权限到新资源
+	// 用于在复制资源时保持原有的权限设置
+	CopyResourcePermissions(ctx context.Context, sourceResourceType int, sourceResourceID string, targetResourceID string, spaceID int64) error
 }
 
 // ---------- 请求/响应结构体 ----------
@@ -152,6 +162,6 @@ type AgentBasicInfo struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	CreatorID   int64  `json:"creator_id"`
 }
-
 

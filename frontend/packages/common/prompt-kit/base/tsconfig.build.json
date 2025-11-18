@@ -29,6 +29,9 @@
       "path": "../../../arch/i18n/tsconfig.build.json"
     },
     {
+      "path": "../../auth/tsconfig.build.json"
+    },
+    {
       "path": "../../../../config/eslint-config/tsconfig.build.json"
     },
     {

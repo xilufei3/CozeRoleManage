@@ -3848,6 +3848,64 @@ table "rbac_role_resource_permission" {
     columns = [column.role_id, column.resource_type, column.resource_id]
   }
 }
+table "rbac_user_resource_permission" {
+  schema  = schema.opencoze
+  comment = "User Resource Permission Table (Direct permissions, not through roles)"
+  column "id" {
+    null           = false
+    type           = bigint
+    unsigned       = true
+    auto_increment = true
+    comment        = "ID"
+  }
+  column "user_id" {
+    null    = false
+    type    = varchar(255)
+    comment = "User ID"
+  }
+  column "space_id" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Space ID"
+  }
+  column "resource_type" {
+    null    = false
+    type    = int
+    comment = "Resource Type: 4=agent, 5=plugin, 6=workflow, 7=knowledge, 17=prompt, 23=database"
+  }
+  column "resource_id" {
+    null    = false
+    type    = varchar(255)
+    comment = "Resource ID"
+  }
+  column "actions" {
+    null    = false
+    type    = json
+    comment = "Action Array: [\"read\", \"update\", \"delete\", \"execute\", \"publish\", \"manage\", \"query\", \"install\"]"
+  }
+  column "created_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Creation Time (Milliseconds)"
+  }
+  column "updated_at" {
+    null     = false
+    type     = bigint
+    unsigned = true
+    comment  = "Update Time (Milliseconds)"
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "idx_user_space" {
+    columns = [column.user_id, column.space_id]
+  }
+  index "idx_space_resource" {
+    columns = [column.space_id, column.resource_type, column.resource_id]
+  }
+}
 table "template" {
   schema  = schema.opencoze
   comment = "Template Info Table"

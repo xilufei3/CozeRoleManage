@@ -19,8 +19,10 @@ package search
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/resource"
@@ -215,6 +217,14 @@ func (s *SearchApplicationService) packResource(ctx context.Context, doc *entity
 	if err != nil {
 		logs.CtxWarnf(ctx, "[packResource] GetDataInfo failed, resID: %d, Name : %s, resType: %d, err: %v",
 			doc.ResID, doc.GetName(), doc.ResType, err)
+
+		// 🔑 如果是资源不存在或已删除，返回错误而不是返回不完整的数据
+		// 这样可以过滤掉ES索引中存在但数据库中已删除的资源
+		if strings.Contains(err.Error(), "record not found") ||
+		   strings.Contains(err.Error(), "not found") ||
+		   strings.Contains(err.Error(), "deleted") {
+			return nil, fmt.Errorf("resource not found or deleted: %w", err)
+		}
 
 		ri.Icon = ptr.Of(s.getResourceDefaultIconURL(ctx, doc.ResType))
 

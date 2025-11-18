@@ -66,6 +66,9 @@
       "path": "../../bot-utils/tsconfig.build.json"
     },
     {
+      "path": "../../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../../common/chat-area/chat-core/tsconfig.build.json"
     },
     {

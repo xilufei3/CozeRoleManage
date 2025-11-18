@@ -30,6 +30,7 @@ import {
   BotTableRWMode,
   type SingleDatabaseResponse,
 } from '@coze-arch/bot-api/memory';
+import { triggerRBACReload } from '@coze-common/auth';
 
 export const enum Step {
   BASE_INFO = 0,
@@ -84,6 +85,9 @@ export const useLibraryCreateDatabaseModal = ({
   const handleCreateTableSubmit = (createRes: SingleDatabaseResponse) => {
     const { id, draft_id } = createRes.database_info ?? {};
     if (id && draft_id) {
+      // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+      triggerRBACReload();
+      console.log('[Database Create] 触发RBAC权限刷新');
       if (onFinish) {
         // Bot binding database needs draft_id, other scenarios generally only need to use id
         onFinish(id, draft_id);

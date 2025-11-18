@@ -24,6 +24,7 @@ import {
 } from 'react';
 
 import { useSpaceStore } from '@coze-foundation/space-store';
+import { useUserInfo } from '@coze-foundation/account-adapter';
 import { IconCozEdit } from '@coze-arch/coze-design/icons';
 import {
   Button,
@@ -115,6 +116,7 @@ const useRoleResources = (
   const [roles, setRoles] = useState<Role[]>([]);
   const [userRoles, setUserRoles] = useState<Record<string, Role[]>>({});
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const loadRoles = useCallback(async () => {
     if (!spaceId) {
@@ -137,29 +139,34 @@ const useRoleResources = (
   }, [currentRoleType, spaceId]);
 
   const loadAllUserRoles = useCallback(async () => {
-    if (!spaceId) {
+    if (!spaceId || users.length === 0) {
+      setUserRoles({});
       return;
     }
     setLoading(true);
     try {
       const rolesMap: Record<string, Role[]> = {};
-      for (const user of users) {
-        try {
-          const data = await getUserRoles(user.id, spaceId);
-          rolesMap[user.id] = data?.roles || [];
-        } catch (error) {
-          console.error(`Failed to load roles for user ${user.id}`, error);
-          rolesMap[user.id] = [];
-        }
-      }
+      await Promise.all(
+        users.map(async user => {
+          try {
+            const data = await getUserRoles(user.id, spaceId);
+            rolesMap[user.id] = data?.roles || [];
+          } catch (error) {
+            console.error(`Failed to load roles for user ${user.id}`, error);
+            rolesMap[user.id] = [];
+          }
+        }),
+      );
       setUserRoles(rolesMap);
     } catch (error) {
       console.error('加载用户角色失败', error);
+      setUserRoles({});
     } finally {
       setLoading(false);
     }
   }, [spaceId, users]);
 
+  // 只在初始化时加载一次
   useEffect(() => {
     loadRoles();
   }, [loadRoles]);
@@ -524,7 +531,7 @@ export default function UserManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Title heading={3}>用户管理</Title>
+        <Title heading={3}>用户身份管理</Title>
         <Text type="secondary">为用户分配角色，管理用户的访问权限</Text>
       </div>
 

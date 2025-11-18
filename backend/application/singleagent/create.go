@@ -18,18 +18,21 @@ package singleagent
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/app/bot_common"
 	"github.com/coze-dev/coze-studio/backend/api/model/app/developer_api"
 	intelligence "github.com/coze-dev/coze-studio/backend/api/model/app/intelligence/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/bizpkg/config"
 	singleagent "github.com/coze-dev/coze-studio/backend/crossdomain/agent/model"
 	"github.com/coze-dev/coze-studio/backend/domain/agent/singleagent/entity"
 	searchEntity "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
+	"github.com/coze-dev/coze-studio/backend/pkg/logs"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
 
@@ -52,6 +55,23 @@ func (s *SingleAgentApplicationService) CreateSingleAgentDraft(ctx context.Conte
 	agentID, err := s.DomainSVC.CreateSingleAgentDraft(ctx, userID, do)
 	if err != nil {
 		return nil, err
+	}
+
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(userID, 10),
+			req.SpaceID,
+			4, // ResourceTypeBot (Agent)
+			strconv.FormatInt(agentID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for agent %d: %v", agentID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for agent %d to user %d", agentID, userID)
+		}
 	}
 
 	err = s.appContext.EventBus.PublishProject(ctx, &searchEntity.ProjectDomainEvent{

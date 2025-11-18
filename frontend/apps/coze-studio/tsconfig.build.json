@@ -59,6 +59,9 @@
       "path": "../../packages/arch/api-schema/tsconfig.build.json"
     },
     {
+      "path": "../../packages/arch/bot-api/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/arch/bot-env/tsconfig.build.json"
     },
     {
@@ -90,6 +93,9 @@
     },
     {
       "path": "../../packages/arch/web-context/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/common/auth/tsconfig.build.json"
     },
     {
       "path": "../../packages/community/explore/tsconfig.build.json"

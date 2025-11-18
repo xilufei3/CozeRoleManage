@@ -26,6 +26,7 @@ import {
 import { I18n } from '@coze-arch/i18n';
 import { useFlags } from '@coze-arch/bot-flags';
 import { CustomError } from '@coze-arch/bot-error';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import { DataSourceType, WorkflowModalFrom } from '@/workflow-modal';
 import { CreateWorkflowModal, type RuleItem } from '@/workflow-edit';
@@ -148,6 +149,12 @@ export const useCreateWorkflowModal = ({
               '[Workflow] create failed',
               'create workflow failed, no workflow id',
             );
+          }
+
+          // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+          if (formMode === 'add') {
+            triggerRBACReload();
+            console.log('[Workflow Create] 触发RBAC权限刷新');
           }
 
           if (onCreateSuccess && formMode === 'add') {

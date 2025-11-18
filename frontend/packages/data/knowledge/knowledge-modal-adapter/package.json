@@ -17,6 +17,7 @@
     "@coze-arch/bot-studio-store": "workspace:*",
     "@coze-arch/coze-design": "0.0.6-alpha.346d77",
     "@coze-arch/i18n": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-data/e2e": "workspace:*",
     "@coze-data/knowledge-modal-base": "workspace:*",
     "@coze-data/knowledge-resource-processor-core": "workspace:*",

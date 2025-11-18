@@ -111,4 +111,30 @@ func (dao *PermissionDAO) GetResourcePermissions(ctx context.Context, resourceTy
 	).Find()
 }
 
+// CreateUserResourcePermission 创建用户资源权限
+func (dao *PermissionDAO) CreateUserResourcePermission(ctx context.Context, permission *model.RbacUserResourcePermission) error {
+	db := dao.query.RbacRoleResourcePermission.WithContext(ctx).UnderlyingDB()
+	return db.Table(model.TableNameRbacUserResourcePermission).Create(permission).Error
+}
+
+// GetUserPermissionsByResource 获取资源的所有用户权限
+func (dao *PermissionDAO) GetUserPermissionsByResource(ctx context.Context, spaceID int64, resourceType int, resourceID string) ([]*model.RbacUserResourcePermission, error) {
+	var permissions []*model.RbacUserResourcePermission
+	db := dao.query.RbacRoleResourcePermission.WithContext(ctx).UnderlyingDB()
+	err := db.Table(model.TableNameRbacUserResourcePermission).
+		Where("space_id = ? AND resource_type = ? AND resource_id = ?", spaceID, resourceType, resourceID).
+		Find(&permissions).Error
+	return permissions, err
+}
+
+// GetUserDirectPermissions 获取用户的所有直接权限（不通过角色）
+func (dao *PermissionDAO) GetUserDirectPermissions(ctx context.Context, spaceID int64, userID string) ([]*model.RbacUserResourcePermission, error) {
+	var permissions []*model.RbacUserResourcePermission
+	db := dao.query.RbacRoleResourcePermission.WithContext(ctx).UnderlyingDB()
+	err := db.Table(model.TableNameRbacUserResourcePermission).
+		Where("space_id = ? AND user_id = ?", spaceID, userID).
+		Find(&permissions).Error
+	return permissions, err
+}
+
 

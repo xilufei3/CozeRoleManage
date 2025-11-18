@@ -46,6 +46,7 @@ import {
   CozAvatar,
   Typography,
   Space,
+  Tooltip,
 } from '@coze-arch/coze-design';
 import {
   BotTableRWMode,
@@ -54,6 +55,11 @@ import {
   type UpdateDatabaseRequest,
 } from '@coze-arch/bot-api/memory';
 import { MemoryApi } from '@coze-arch/bot-api';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { DatabaseTableStructureReadonly } from '../database-table-structure-readonly';
 import { DatabaseTableData } from '../database-table-data';
@@ -106,6 +112,15 @@ export const DatabaseDetail = ({
   // page loading
   const [loading, setLoading] = useState(true);
 
+  // RBAC权限检查：检查当前数据库的update权限
+  const hasUpdatePermission = useRBACPermission(
+    RBACResourceType.Database,
+    String(databaseId),
+    RBACAction.Update,
+  );
+
+  console.log('[Database Detail RBAC] 数据库:', databaseId, 'RBAC update权限:', hasUpdatePermission);
+
   // fetch database basicInfo
   const fetchDatabaseInfo = async () => {
     try {
@@ -130,8 +145,9 @@ export const DatabaseDetail = ({
     }
   };
 
-  // Need a store, follow-up renovation
-  const isReadOnlyMode = databaseInfo.creator_id !== userId || !!version;
+  // 🔑 RBAC权限检查：如果明确没有update权限，则只读
+  // 注意：这里不再使用 creator_id 判断，完全依赖 RBAC 权限
+  const isReadOnlyMode = hasUpdatePermission === false || !!version;
 
   const tableInitData: DatabaseInitInfo = useMemo(
     () => ({
@@ -314,15 +330,34 @@ export const DatabaseDetail = ({
               <Space spacing={16}>
                 <DatabaseDetailWaring />
                 {activeKey === DatabaseTabs.Structure ? (
-                  <Button
-                    data-testid={BotE2e.BotDatabaseEditTableStructureBtn}
-                    onClick={() => setCreateTableVisible(true)}
-                    icon={<IconCozEdit />}
-                    color="highlight"
-                    disabled={isReadOnlyMode}
+                  <Tooltip
+                    content={
+                      !hasUpdatePermission
+                        ? '您没有编辑此数据库的权限'
+                        : undefined
+                    }
                   >
-                    {I18n.t('db_new_0003')}
-                  </Button>
+                    <Button
+                      data-testid={BotE2e.BotDatabaseEditTableStructureBtn}
+                      onClick={() => {
+                        console.log('[Database Detail] 点击编辑表结构按钮', {
+                          databaseId,
+                          isReadOnlyMode,
+                          hasUpdatePermission,
+                          finalDisabled: isReadOnlyMode || !hasUpdatePermission,
+                          tooltipContent: !hasUpdatePermission
+                            ? '您没有编辑此数据库的权限'
+                            : undefined,
+                        });
+                        setCreateTableVisible(true);
+                      }}
+                      icon={<IconCozEdit />}
+                      color="highlight"
+                      disabled={isReadOnlyMode || !hasUpdatePermission}
+                    >
+                      {I18n.t('db_new_0003')}
+                    </Button>
+                  </Tooltip>
                 ) : null}
               </Space>
             }

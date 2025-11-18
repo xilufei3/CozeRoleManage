@@ -28,6 +28,7 @@ import {
   type ResourceInfo,
   ResType,
 } from '@coze-arch/bot-api/plugin_develop';
+import type { ResourcePermissions } from '@coze-common/auth';
 
 import {
   parseWorkflowResourceBizExtend,
@@ -98,17 +99,32 @@ export const useWorkflowResourceMenuActions = (
     );
 
     const isSelfCreator = record.creator_id === userId;
+
+    // 获取RBAC权限
+    const rbacPermissions = (record as any).rbac_permissions as ResourcePermissions | undefined;
+    const hasUpdatePermission = rbacPermissions?.update !== false;
+    const hasDeletePermission = rbacPermissions?.delete !== false;
+    const hasPublishPermission = rbacPermissions?.publish !== false;
+
+    console.log('[Workflow Actions RBAC]', {
+      workflowId: record.res_id,
+      workflowName: record.name,
+      rbacPermissions,
+      hasUpdate: hasUpdatePermission,
+      hasDelete: hasDeletePermission,
+      hasPublish: hasPublishPermission,
+    });
     const extraActions: ActionItemProps[] = [
       {
         hide: !editConfig,
-        disabled: editConfig?.enable === false,
+        disabled: editConfig?.enable === false || !hasUpdatePermission,
         actionKey: 'edit',
         actionText: I18n.t('Edit'),
         handler: () => actionMap?.[ActionKey.Edit]?.(record),
       },
       {
         hide: !chatflowConfig,
-        disabled: chatflowConfig?.enable === false,
+        disabled: chatflowConfig?.enable === false || !hasUpdatePermission,
         actionKey: 'switchChatflow',
         actionText: I18n.t('wf_chatflow_121', {
           flowMode: I18n.t('wf_chatflow_76'),
@@ -117,18 +133,19 @@ export const useWorkflowResourceMenuActions = (
       },
       {
         hide: !workflowConfig,
-        disabled: workflowConfig?.enable === false,
+        disabled: workflowConfig?.enable === false || !hasUpdatePermission,
         actionKey: 'switchWorkflow',
         actionText: I18n.t('wf_chatflow_121', { flowMode: I18n.t('Workflow') }),
         handler: () => actionMap?.[ActionKey.SwitchToFuncflow]?.(record),
       },
-      ...(getCommonActions?.(record) ?? []),
+      // 统一RBAC，避免混用旧actionList导致禁用状态冲突
       {
         hide:
           !enablePublishEntry || // The entrance on the shelf is white.
           (!FLAGS['bot.community.store_imageflow'] && isImageFlow) || // Imageflow does not support stores
           !isSelfCreator ||
           bizExtend?.plugin_id === '0',
+        disabled: !hasPublishPermission,
         actionKey: 'publishWorkflowProduct',
         actionText:
           productDraftStatus === ProductDraftStatus.Default
@@ -143,7 +160,7 @@ export const useWorkflowResourceMenuActions = (
       <Table.TableAction
         deleteProps={{
           hide: !deleteActionConfig,
-          disabled: deleteActionConfig?.enable === false,
+          disabled: deleteActionConfig?.enable === false || !hasDeletePermission,
           disableConfirm: true,
           handler: () => actionMap[ActionKey.Delete]?.(record),
         }}

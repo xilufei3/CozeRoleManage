@@ -123,6 +123,9 @@
       "path": "../base/tsconfig.build.json"
     },
     {
+      "path": "../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../common/chat-area/chat-uikit/tsconfig.build.json"
     },
     {

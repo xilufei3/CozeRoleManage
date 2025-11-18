@@ -54,6 +54,9 @@ importers:
       '@coze-agent-ide/layout-adapter':
         specifier: workspace:*
         version: link:../../packages/agent-ide/layout-adapter
+      '@coze-arch/bot-api':
+        specifier: workspace:*
+        version: link:../../packages/arch/bot-api
       '@coze-arch/bot-flags':
         specifier: workspace:*
         version: link:../../packages/arch/bot-flags
@@ -78,6 +81,9 @@ importers:
       '@coze-arch/web-context':
         specifier: workspace:*
         version: link:../../packages/arch/web-context
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../packages/common/auth
       '@coze-foundation/account-adapter':
         specifier: workspace:*
         version: link:../../packages/foundation/account-adapter
@@ -2051,6 +2057,9 @@ importers:
       '@coze-common/assets':
         specifier: workspace:*
         version: link:../../../common/assets
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-common/biz-components':
         specifier: workspace:*
         version: link:../../../common/biz-components
@@ -4302,6 +4311,9 @@ importers:
       '@coze-common/assets':
         specifier: workspace:*
         version: link:../../common/assets
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../common/auth
       '@coze-common/chat-area':
         specifier: workspace:*
         version: link:../../common/chat-area/chat-area
@@ -9527,6 +9539,9 @@ importers:
       '@coze-arch/coze-design':
         specifier: 0.0.7-alpha.985c0d
         version: 0.0.7-alpha.985c0d(@types/react@18.2.37)(acorn@8.15.0)(react-dom@18.2.0)(react@18.2.0)
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../auth
       '@coze-common/chat-area-utils':
         specifier: workspace:*
         version: link:../utils
@@ -11388,6 +11403,9 @@ importers:
       '@coze-arch/i18n':
         specifier: workspace:*
         version: link:../../../arch/i18n
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../auth
       '@coze-common/editor-plugins':
         specifier: workspace:*
         version: link:../../editor-plugins
@@ -13675,6 +13693,9 @@ importers:
       '@coze-arch/report-tti':
         specifier: workspace:*
         version: link:../../../arch/report-tti
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-common/chat-area-utils':
         specifier: workspace:*
         version: link:../../../common/chat-area/utils
@@ -13838,6 +13859,9 @@ importers:
       '@coze-arch/i18n':
         specifier: workspace:*
         version: link:../../../arch/i18n
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-data/e2e':
         specifier: link:../../common/e2e
         version: link:../../common/e2e
@@ -14909,6 +14933,9 @@ importers:
       '@coze-arch/report-events':
         specifier: workspace:*
         version: link:../../../arch/report-events
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-common/table-view':
         specifier: workspace:*
         version: link:../../../components/table-view
@@ -20197,6 +20224,9 @@ importers:
       '@coze-arch/web-context':
         specifier: workspace:*
         version: link:../../../arch/web-context
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-common/websocket-manager-adapter':
         specifier: workspace:*
         version: link:../../../common/websocket-manager-adapter
@@ -20434,6 +20464,9 @@ importers:
       '@coze-arch/idl':
         specifier: workspace:*
         version: link:../../../arch/idl
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-foundation/space-store-adapter':
         specifier: workspace:*
         version: link:../../../foundation/space-store-adapter
@@ -20543,6 +20576,9 @@ importers:
       '@coze-arch/report-events':
         specifier: workspace:*
         version: link:../../../arch/report-events
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../../common/auth
       '@coze-common/biz-components':
         specifier: workspace:*
         version: link:../../../common/biz-components
@@ -21603,6 +21639,9 @@ importers:
       '@coze-common/assets':
         specifier: workspace:*
         version: link:../../common/assets
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../common/auth
       '@coze-common/biz-components':
         specifier: workspace:*
         version: link:../../common/biz-components
@@ -22325,6 +22364,9 @@ importers:
       '@coze-arch/web-context':
         specifier: workspace:*
         version: link:../../arch/web-context
+      '@coze-common/auth':
+        specifier: workspace:*
+        version: link:../../common/auth
       '@coze-common/biz-tooltip-ui':
         specifier: workspace:*
         version: link:../../components/biz-tooltip-ui

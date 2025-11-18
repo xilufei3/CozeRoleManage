@@ -74,6 +74,7 @@
     "@coze-arch/i18n": "workspace:*",
     "@coze-arch/logger": "workspace:*",
     "@coze-common/assets": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/biz-components": "workspace:*",
     "@coze-community/components": "workspace:*",
     "@coze-foundation/enterprise-store-adapter": "workspace:*",

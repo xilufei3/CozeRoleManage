@@ -29,6 +29,7 @@ import { MemoryApi } from '@coze-arch/bot-api';
 import { useLibraryCreateDatabaseModal } from '@coze-data/database-v2';
 
 import { type UseEntityConfigHook } from './types';
+import { type ResourceInfoWithPermissions } from '../use-resource-permissions';
 
 const { TableAction } = Table;
 
@@ -90,11 +91,23 @@ export const useDatabaseConfig: UseEntityConfigHook = ({
         );
       },
       renderActions: (item: ResourceInfo) => {
-        // Can it be deleted?
-        const deleteDisabled = !item.actions?.find(
-          action => action.key === ActionKey.Delete,
-        )?.enable;
-        // Whether to enable
+        // 类型断言，获取RBAC权限信息
+        const itemWithPermissions = item as ResourceInfoWithPermissions;
+        const rbacPerms = itemWithPermissions.rbac_permissions || {};
+
+        // 基于RBAC权限判断按钮状态
+        const deleteDisabled = rbacPerms.delete === false;
+
+        // 🐛 调试信息
+        console.log(
+          `[Database Action] 资源: ${item.res_id} "${item.name}"`,
+          '\n  权限对象:',
+          rbacPerms,
+          '\n  delete权限:',
+          rbacPerms.delete,
+          '\n  删除按钮禁用:',
+          deleteDisabled,
+        );
 
         // delete operation
         const deleteProps = {
@@ -105,12 +118,7 @@ export const useDatabaseConfig: UseEntityConfigHook = ({
           },
         };
 
-        return (
-          <TableAction
-            deleteProps={deleteProps}
-            actionList={getCommonActions?.(item)}
-          />
-        );
+        return <TableAction deleteProps={deleteProps} />;
       },
     },
   };

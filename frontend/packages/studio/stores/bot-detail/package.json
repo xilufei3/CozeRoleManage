@@ -92,6 +92,7 @@
     "@coze-arch/logger": "workspace:*",
     "@coze-arch/report-events": "workspace:*",
     "@coze-arch/web-context": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/websocket-manager-adapter": "workspace:*",
     "@coze-studio/autosave": "workspace:*",
     "@coze-studio/bot-utils": "workspace:*",

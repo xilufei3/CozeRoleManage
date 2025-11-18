@@ -18,10 +18,12 @@ package prompt
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/coze-dev/coze-studio/backend/api/model/playground"
 	"github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/application/search"
 	"github.com/coze-dev/coze-studio/backend/domain/prompt/entity"
 	prompt "github.com/coze-dev/coze-studio/backend/domain/prompt/service"
@@ -174,6 +176,23 @@ func (p *PromptApplicationService) createPromptResource(ctx context.Context, req
 	promptID, err := p.DomainSVC.CreatePromptResource(ctx, do)
 	if err != nil {
 		return nil, err
+	}
+
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(*uid, 10),
+			*req.Prompt.SpaceID,
+			17, // ResourceTypePrompt
+			strconv.FormatInt(promptID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for prompt %d: %v", promptID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for prompt %d to user %d", promptID, *uid)
+		}
 	}
 
 	return &playground.UpsertPromptResourceResponse{

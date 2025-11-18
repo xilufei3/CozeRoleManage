@@ -27,6 +27,9 @@
       "path": "../../../arch/i18n/tsconfig.build.json"
     },
     {
+      "path": "../../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../common/e2e/tsconfig.build.json"
     },
     {

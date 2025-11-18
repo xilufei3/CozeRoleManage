@@ -55,6 +55,10 @@ export { useGlobalEventListeners } from './hooks/use-global-event-listeners';
 export { useProjectCopyPolling } from './hooks/use-project-copy-polling';
 export { useCachedQueryParams } from './hooks/use-cached-query-params';
 export { BotCard } from './components/bot-card';
+export {
+  useIntelligencesWithPermissions,
+  type IntelligenceDataWithPermissions,
+} from './hooks/use-intelligence-permissions';
 
 export interface DevelopProps {
   spaceId: string;

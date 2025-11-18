@@ -339,6 +339,7 @@ type AgentInfo struct {
 	ID          int64  `json:"id,string"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	CreatorID   int64  `json:"creator_id,string"`
 }
 
 

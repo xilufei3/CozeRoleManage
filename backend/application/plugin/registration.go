@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -30,6 +31,7 @@ import (
 	common "github.com/coze-dev/coze-studio/backend/api/model/plugin_develop/common"
 	resCommon "github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/crossdomain/plugin/consts"
 	"github.com/coze-dev/coze-studio/backend/crossdomain/plugin/convert"
 	"github.com/coze-dev/coze-studio/backend/crossdomain/plugin/model"
@@ -37,6 +39,7 @@ import (
 	searchEntity "github.com/coze-dev/coze-studio/backend/domain/search/entity"
 	"github.com/coze-dev/coze-studio/backend/pkg/errorx"
 	"github.com/coze-dev/coze-studio/backend/pkg/lang/ptr"
+	"github.com/coze-dev/coze-studio/backend/pkg/logs"
 	commonConsts "github.com/coze-dev/coze-studio/backend/types/consts"
 	"github.com/coze-dev/coze-studio/backend/types/errno"
 )
@@ -98,6 +101,23 @@ func (p *PluginApplicationService) RegisterPluginMeta(ctx context.Context, req *
 		return nil, errorx.Wrapf(err, "CreateDraftPlugin failed")
 	}
 
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(*userID, 10),
+			req.SpaceID,
+			5, // ResourceTypePlugin
+			strconv.FormatInt(pluginID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for plugin %d: %v", pluginID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for plugin %d to user %d", pluginID, *userID)
+		}
+	}
+
 	err = p.eventbus.PublishResources(ctx, &searchEntity.ResourceDomainEvent{
 		OpType: searchEntity.Created,
 		Resource: &searchEntity.ResourceDocument{
@@ -151,6 +171,23 @@ func (p *PluginApplicationService) RegisterPlugin(ctx context.Context, req *plug
 	})
 	if err != nil {
 		return nil, errorx.Wrapf(err, "CreateDraftPluginWithCode failed")
+	}
+
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(*userID, 10),
+			req.SpaceID,
+			5, // ResourceTypePlugin
+			strconv.FormatInt(res.Plugin.ID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for plugin %d: %v", res.Plugin.ID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for plugin %d to user %d", res.Plugin.ID, *userID)
+		}
 	}
 
 	err = p.eventbus.PublishResources(ctx, &searchEntity.ResourceDomainEvent{

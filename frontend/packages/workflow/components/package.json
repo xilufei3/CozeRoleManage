@@ -46,6 +46,7 @@
     "@coze-arch/logger": "workspace:*",
     "@coze-arch/report-events": "workspace:*",
     "@coze-common/assets": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/biz-components": "workspace:*",
     "@coze-common/loading-button": "workspace:*",
     "@coze-common/mouse-pad-selector": "workspace:*",

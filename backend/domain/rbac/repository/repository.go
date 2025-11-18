@@ -52,6 +52,11 @@ type PermissionRepository interface {
 	DeleteRolePermissions(ctx context.Context, roleID int64) error
 	DeleteRolePermissionForResource(ctx context.Context, roleID int64, resourceType int, resourceID int64) error
 	GetResourcePermissions(ctx context.Context, resourceType int, resourceID int64) ([]*model.RbacRoleResourcePermission, error)
+
+	// 用户资源权限管理
+	CreateUserResourcePermission(ctx context.Context, permission *model.RbacUserResourcePermission) error
+	GetUserPermissionsByResource(ctx context.Context, spaceID int64, resourceType int, resourceID string) ([]*model.RbacUserResourcePermission, error)
+	GetUserDirectPermissions(ctx context.Context, spaceID int64, userID string) ([]*model.RbacUserResourcePermission, error)
 }
 
 // NewRoleRepo 创建角色仓储

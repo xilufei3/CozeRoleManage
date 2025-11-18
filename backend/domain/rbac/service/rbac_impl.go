@@ -201,19 +201,20 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 		roleIDs = append(roleIDs, ur.RoleID)
 	}
 
-	if len(roleIDs) == 0 {
-		return &entity.UserPermissions{
-			UserID:      userID,
-			SpaceID:     spaceID,
-			Roles:       []*entity.Role{},
-			Permissions: make(map[entity.ResourceType][]entity.Action),
-		}, nil
-	}
+    var permissions []*model.RbacRoleResourcePermission
+    if len(roleIDs) > 0 {
+        permissions, err = s.permissionRepo.BatchGetRolePermissions(ctx, roleIDs)
+        if err != nil {
+            return nil, err
+        }
+    } else {
+        permissions = []*model.RbacRoleResourcePermission{}
+    }
 
-	// 获取所有角色的权限
-	permissions, err := s.permissionRepo.BatchGetRolePermissions(ctx, roleIDs)
+	// 🔑 获取用户的直接权限（不通过角色）
+	userDirectPermissions, err := s.permissionRepo.GetUserDirectPermissions(ctx, spaceID, fmt.Sprintf("%d", userID))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get user direct permissions: %w", err)
 	}
 
 	// 聚合权限（按资源类型和资源ID）
@@ -222,6 +223,7 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 	// 再收集具体资源的权限
 	specificResourcePerms := make(map[string]map[entity.Action]bool) // key: "resourceType_resourceID"
 
+	// 🔑 处理角色权限
 	for _, perm := range permissions {
 		rt := entity.ResourceType(perm.ResourceType)
 
@@ -245,7 +247,35 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 		}
 	}
 
-	// 聚合权限：所有资源的权限 + 具体资源的权限 取并集
+	// 🔑 处理用户直接权限（不通过角色）
+	for _, userPerm := range userDirectPermissions {
+		rt := entity.ResourceType(userPerm.ResourceType)
+
+		// 将resource_id转换为int64进行判断
+		var resourceIDInt int64
+		fmt.Sscanf(userPerm.ResourceID, "%d", &resourceIDInt)
+
+		if resourceIDInt == 0 || userPerm.ResourceID == "0" {
+			// 所有资源的权限
+			if allResourcePerms[rt] == nil {
+				allResourcePerms[rt] = make(map[entity.Action]bool)
+			}
+			for _, action := range userPerm.Actions {
+				allResourcePerms[rt][entity.Action(action)] = true
+			}
+		} else {
+			// 具体资源的权限
+			key := fmt.Sprintf("%d_%s", rt, userPerm.ResourceID)
+			if specificResourcePerms[key] == nil {
+				specificResourcePerms[key] = make(map[entity.Action]bool)
+			}
+			for _, action := range userPerm.Actions {
+				specificResourcePerms[key][entity.Action(action)] = true
+			}
+		}
+	}
+
+	// 聚合权限：所有资源的权限 + 具体资源的权限 + 用户直接权限 取并集
 	aggregatedPerms := make(map[entity.ResourceType]map[entity.Action]bool)
 
 	// 首先添加所有资源的权限
@@ -293,8 +323,10 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 		roles = append(roles, s.modelToEntity(role))
 	}
 
-	// 转换详细权限列表
-	detailPerms := make([]*entity.Permission, 0, len(permissions))
+	// 转换详细权限列表（包含角色权限和用户直接权限）
+	detailPerms := make([]*entity.Permission, 0, len(permissions)+len(userDirectPermissions))
+
+	// 添加角色权限
 	for _, perm := range permissions {
 		detailPerms = append(detailPerms, &entity.Permission{
 			ID:           perm.ID,
@@ -304,6 +336,22 @@ func (s *rbacServiceImpl) GetUserPermissions(ctx context.Context, spaceID, userI
 			Actions:      []string(perm.Actions),
 			CreatedAt:    perm.CreatedAt,
 			UpdatedAt:    perm.UpdatedAt,
+		})
+	}
+
+	// 🔑 添加用户直接权限
+	for _, userPerm := range userDirectPermissions {
+		var resourceIDInt int64
+		fmt.Sscanf(userPerm.ResourceID, "%d", &resourceIDInt)
+
+		detailPerms = append(detailPerms, &entity.Permission{
+			ID:           userPerm.ID,
+			RoleID:       0, // 直接权限，不属于任何角色
+			ResourceType: entity.ResourceType(userPerm.ResourceType),
+			ResourceID:   resourceIDInt,
+			Actions:      []string(userPerm.Actions),
+			CreatedAt:    userPerm.CreatedAt,
+			UpdatedAt:    userPerm.UpdatedAt,
 		})
 	}
 
@@ -438,50 +486,101 @@ func (s *rbacServiceImpl) GetResourcePermissions(ctx context.Context, resourceTy
 // ---------- 权限检查实现 ----------
 
 func (s *rbacServiceImpl) CheckPermission(ctx context.Context, check *entity.PermissionCheck) (bool, error) {
-	// 获取用户的所有角色
+	// 🔑 权限检查策略：合并RBAC角色权限和用户直接权限（取并集）
+	//
+	// 设计说明：
+	// 1. 对于用户创建的资源：角色权限 ∪ 直接权限
+	// 2. 对于非用户创建的资源：只应该有角色权限，直接权限应该为空
+	//
+	// 实现逻辑：
+	// - 如果资源不是用户创建的，直接权限查询结果为空，合并后只有角色权限，既安全又高效
+	// - 如果数据库中有错误的直接权限记录（非用户创建的资源），仍然会生效
+	// - 建议：在设置直接权限时进行验证，确保只允许为用户创建的资源设置直接权限
+
+	// 1. 先检查用户是否有角色，如果有则检查角色权限
 	userRoles, err := s.roleRepo.GetUserRoles(ctx, check.SpaceID, check.UserID)
 	if err != nil {
 		return false, err
 	}
 
-	if len(userRoles) == 0 {
-		return false, nil
-	}
-
-	roleIDs := make([]int64, 0, len(userRoles))
-	for _, ur := range userRoles {
-		roleIDs = append(roleIDs, ur.RoleID)
-	}
-
-	// 获取所有角色的权限
-	permissions, err := s.permissionRepo.BatchGetRolePermissions(ctx, roleIDs)
-	if err != nil {
-		return false, err
-	}
-
-	// 检查是否有匹配的权限
-	// 优先级：所有资源(0) > 具体资源
-	for _, perm := range permissions {
-		// 资源类型匹配
-		if entity.ResourceType(perm.ResourceType) != check.ResourceType {
-			continue
+	var roleIDs []int64
+	if len(userRoles) > 0 {
+		roleIDs = make([]int64, 0, len(userRoles))
+		for _, ur := range userRoles {
+			roleIDs = append(roleIDs, ur.RoleID)
 		}
 
-		// 资源ID匹配：
-		// 1. resource_id = 0 表示对所有该类型资源有权限
-		// 2. 或者 resource_id 精确匹配
-		if perm.ResourceID != 0 && perm.ResourceID != check.ResourceID {
-			continue
+		permissions, err := s.permissionRepo.BatchGetRolePermissions(ctx, roleIDs)
+		if err != nil {
+			return false, err
 		}
 
-		// 检查操作权限
-		for _, action := range perm.Actions {
-			if entity.Action(action) == check.Action {
-				return true, nil // 找到匹配的权限
+		// 检查角色权限
+		for _, perm := range permissions {
+			if entity.ResourceType(perm.ResourceType) != check.ResourceType {
+				continue
+			}
+			// 资源ID匹配：
+			// 1. resource_id = 0 表示对所有该类型资源有权限
+			// 2. 或者 resource_id 精确匹配
+			if perm.ResourceID != 0 && perm.ResourceID != check.ResourceID {
+				continue
+			}
+			// 检查操作权限
+			for _, action := range perm.Actions {
+				if entity.Action(action) == check.Action {
+					return true, nil // 找到匹配的角色权限
+				}
 			}
 		}
 	}
 
+	// 2. 检查用户直接权限（只对用户创建的资源生效）
+	// 🔑 策略：
+	// - resource_id = 0（所有资源）：直接权限总是允许（全局权限）
+	// - resource_id != 0（具体资源）：只对用户创建的资源生效
+	//   如果资源不是用户创建的，直接权限查询结果为空，合并后只有角色权限，既安全又高效
+	userDirectPerms, err := s.permissionRepo.GetUserDirectPermissions(ctx, check.SpaceID, fmt.Sprintf("%d", check.UserID))
+	if err != nil {
+		return false, fmt.Errorf("failed to get user direct permissions: %w", err)
+	}
+
+	// 检查用户直接权限
+	for _, perm := range userDirectPerms {
+		// 资源类型匹配
+		if perm.ResourceType != int(check.ResourceType) {
+			continue
+		}
+
+		// 资源ID匹配：需要转换为int64进行比较
+		var permResourceID int64
+		fmt.Sscanf(perm.ResourceID, "%d", &permResourceID)
+
+		// 资源ID匹配：
+		// 1. resource_id = 0 表示对所有该类型资源有权限（全局权限，总是允许）
+		// 2. 或者 resource_id 精确匹配（只对用户创建的资源生效）
+		if permResourceID == 0 {
+			// "所有资源"的直接权限，总是允许
+			for _, action := range perm.Actions {
+				if entity.Action(action) == check.Action {
+					return true, nil // 找到匹配的全局直接权限
+				}
+			}
+		} else if permResourceID == check.ResourceID {
+			// 具体资源的直接权限
+			// 🔑 关键：如果资源不是用户创建的，数据库中不应该有直接权限记录
+			// 如果查询结果为空，合并后只有角色权限，既安全又高效
+			// 如果数据库中有错误的直接权限记录（非用户创建的资源），这里仍然会生效
+			// 建议：在设置直接权限时进行验证，确保只允许为用户创建的资源设置直接权限
+			for _, action := range perm.Actions {
+				if entity.Action(action) == check.Action {
+					return true, nil // 找到匹配的用户直接权限
+				}
+			}
+		}
+	}
+
+	// 3. 如果角色权限和直接权限都没有找到，返回false
 	return false, nil
 }
 
@@ -570,11 +669,12 @@ func (s *rbacServiceImpl) GetSpaceAgents(ctx context.Context, spaceID int64) ([]
 		AgentID     int64
 		Name        string
 		Description *string
+		CreatorID   *int64
 	}
 
 	err := s.db.WithContext(ctx).
 		Table("single_agent_draft").
-		Select("id, agent_id, name, description").
+		Select("id, agent_id, name, description, creator_id").
 		Where("space_id = ? AND deleted_at IS NULL", spaceID).
 		Find(&agents).Error
 
@@ -588,14 +688,105 @@ func (s *rbacServiceImpl) GetSpaceAgents(ctx context.Context, spaceID int64) ([]
 		if agent.Description != nil {
 			desc = *agent.Description
 		}
+		creatorID := int64(0)
+		if agent.CreatorID != nil {
+			creatorID = *agent.CreatorID
+		}
 		result = append(result, &AgentBasicInfo{
 			ID:          agent.AgentID, // 使用 agent_id 作为资源 ID
 			Name:        agent.Name,
 			Description: desc,
+			CreatorID:   creatorID,
 		})
 	}
 
 	return result, nil
+}
+
+// ---------- 创建资源时自动分配权限 ----------
+
+// AssignCreatorPermissions 给资源创建者分配所有权限
+// 用于在创建资源时自动授予创建者完整权限，避免用户看不到自己创建的资源
+func (s *rbacServiceImpl) AssignCreatorPermissions(
+	ctx context.Context,
+	userID string,
+	spaceID int64,
+	resourceType int,
+	resourceID string,
+) error {
+	// 根据资源类型确定权限列表
+	actions := s.getDefaultActionsForResourceType(resourceType)
+
+	permission := &model.RbacUserResourcePermission{
+		UserID:       userID,
+		SpaceID:      spaceID,
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+		Actions:      actions,
+	}
+
+	if err := s.permissionRepo.CreateUserResourcePermission(ctx, permission); err != nil {
+		return fmt.Errorf("failed to assign creator permissions: %w", err)
+	}
+
+	return nil
+}
+
+// getDefaultActionsForResourceType 获取资源类型的默认权限列表
+// 创建者应该获得该资源的所有可用权限（除了 create，因为 create 是针对资源类型的，不是具体资源的）
+func (s *rbacServiceImpl) getDefaultActionsForResourceType(resourceType int) model.StringArray {
+	// 使用 GetResourceTypeActions 获取该资源类型支持的所有操作
+	rt := entity.ResourceType(resourceType)
+	allActions := entity.GetResourceTypeActions(rt)
+
+	// 过滤掉 create 权限（create 是针对资源类型的，不是具体资源的）
+	actions := make([]string, 0, len(allActions))
+	for _, action := range allActions {
+		if action != entity.ActionCreate {
+			actions = append(actions, string(action))
+		}
+	}
+
+	// 如果没有找到对应的资源类型，返回默认权限
+	if len(actions) == 0 {
+		return model.StringArray{"read", "update", "delete"}
+	}
+
+	return model.StringArray(actions)
+}
+
+// CopyResourcePermissions 复制资源的权限到新资源
+// 用于在复制资源时保持原有的权限设置
+func (s *rbacServiceImpl) CopyResourcePermissions(
+	ctx context.Context,
+	sourceResourceType int,
+	sourceResourceID string,
+	targetResourceID string,
+	spaceID int64,
+) error {
+	// 1. 获取源资源的所有用户权限
+	sourcePermissions, err := s.permissionRepo.GetUserPermissionsByResource(ctx, spaceID, sourceResourceType, sourceResourceID)
+	if err != nil {
+		return fmt.Errorf("failed to get source resource permissions: %w", err)
+	}
+
+	// 2. 为每个用户在新资源上创建相同的权限
+	for _, perm := range sourcePermissions {
+		newPermission := &model.RbacUserResourcePermission{
+			UserID:       perm.UserID,
+			SpaceID:      spaceID,
+			ResourceType: sourceResourceType,
+			ResourceID:   targetResourceID,
+			Actions:      perm.Actions,
+		}
+
+		if err := s.permissionRepo.CreateUserResourcePermission(ctx, newPermission); err != nil {
+			// 记录错误但继续处理其他用户的权限
+			fmt.Printf("Failed to copy permission for user %s to resource %s: %v\n", perm.UserID, targetResourceID, err)
+		}
+	}
+
+	return nil
 }
 
 

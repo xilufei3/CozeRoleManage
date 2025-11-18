@@ -31,6 +31,7 @@ import (
 	modelCommon "github.com/coze-dev/coze-studio/backend/api/model/data/knowledge"
 	resource "github.com/coze-dev/coze-studio/backend/api/model/resource/common"
 	"github.com/coze-dev/coze-studio/backend/application/base/ctxutil"
+	apprbac "github.com/coze-dev/coze-studio/backend/application/rbac"
 	"github.com/coze-dev/coze-studio/backend/application/search"
 	model "github.com/coze-dev/coze-studio/backend/crossdomain/knowledge/model"
 	"github.com/coze-dev/coze-studio/backend/domain/knowledge/entity"
@@ -82,6 +83,24 @@ func (k *KnowledgeApplicationService) CreateKnowledge(ctx context.Context, req *
 		logs.CtxErrorf(ctx, "create knowledge failed, err: %v", err)
 		return dataset.NewCreateDatasetResponse(), err
 	}
+
+	// 🔑 自动给创建者分配所有权限
+	if apprbac.RBACService != nil {
+		err = apprbac.RBACService.AssignCreatorPermissions(
+			ctx,
+			strconv.FormatInt(*uid, 10),
+			req.SpaceID,
+			7, // ResourceTypeKnowledge
+			strconv.FormatInt(domainResp.KnowledgeID, 10),
+		)
+		if err != nil {
+			// 记录日志但不影响创建流程
+			logs.CtxErrorf(ctx, "Failed to assign creator permissions for knowledge %d: %v", domainResp.KnowledgeID, err)
+		} else {
+			logs.CtxInfof(ctx, "Successfully assigned creator permissions for knowledge %d to user %d", domainResp.KnowledgeID, *uid)
+		}
+	}
+
 	var ptrAppID *int64
 	if req.ProjectID != 0 {
 		ptrAppID = ptr.Of(req.ProjectID)

@@ -77,11 +77,13 @@ export const GroupingContainer: FC<IProps> = props => {
       return false;
     }
 
-    if (isReadonly) {
-      return !registeredToolKeyListInGroup.some(
-        toolConfig => toolConfig.hasValidData,
-      );
-    }
+    // 在只读模式下，仍然显示所有栏目（因为用户有 read 权限，应该能看到配置）
+    // 只读模式不应该隐藏栏目，只是禁用编辑功能
+    // if (isReadonly) {
+    //   return !registeredToolKeyListInGroup.some(
+    //     toolConfig => toolConfig.hasValidData,
+    //   );
+    // }
 
     return tabInvisible;
   };

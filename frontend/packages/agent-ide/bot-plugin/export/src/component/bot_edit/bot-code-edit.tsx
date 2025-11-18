@@ -23,6 +23,7 @@ import { safeJSONParse } from '@coze-arch/bot-utils';
 import { useSpaceStore } from '@coze-arch/bot-studio-store';
 import { UIButton, UIModal, Toast, Space } from '@coze-arch/bot-semi';
 import { PluginDevelopApi } from '@coze-arch/bot-api';
+import { triggerRBACReload } from '@coze-common/auth';
 
 import { Editor } from '../editor';
 
@@ -106,6 +107,11 @@ export const CreateCodePluginModal: React.FC<CreatePluginProps> = props => {
         : I18n.t('Plugin_update_success'),
       showClose: false,
     });
+    // 🔑 创建成功后刷新RBAC权限，确保新资源的权限立即生效
+    if (isCreate) {
+      triggerRBACReload();
+      console.log('[Plugin Create (Code)] 触发RBAC权限刷新');
+    }
     onSuccess?.(res?.data?.plugin_id);
     onCancel?.();
   };

@@ -57,6 +57,9 @@
       "path": "../../../arch/report-tti/tsconfig.build.json"
     },
     {
+      "path": "../../../common/auth/tsconfig.build.json"
+    },
+    {
       "path": "../../../common/chat-area/utils/tsconfig.build.json"
     },
     {

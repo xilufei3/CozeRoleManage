@@ -18,6 +18,11 @@ import { useMemo } from 'react';
 
 import { I18n } from '@coze-arch/i18n';
 import { VCSCanvasType } from '@coze-arch/bot-api/workflow_api';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
 import { useGlobalState } from '@/hooks';
 
@@ -26,15 +31,33 @@ import { useGlobalState } from '@/hooks';
  * 1. The process is running or saved and cannot be published
  * 2. In multiplayer mode, the process is not submitted and cannot be published
  * 3. In vcs mode, the process has already been published and cannot be published.
- * 4.DB mode has no other restrictions and can be released at will
+ * 4. DB mode has no other restrictions and can be released at will
+ * 5. RBAC: User does not have publish permission
  */
 export const useIsPublishDisabled = () => {
-  const { isCollaboratorMode, isExecuting, isVcsMode, config, info } =
+  const { isCollaboratorMode, isExecuting, isVcsMode, config, info, workflowId } =
     useGlobalState();
   const { vcsData } = info;
   const { saving } = config;
 
+  // 检查RBAC publish权限
+  const hasPublishPermission = useRBACPermission(
+    RBACResourceType.Workflow,
+    workflowId || '',
+    RBACAction.Publish,
+  );
+
+  console.log('[Workflow Publish RBAC]', {
+    workflowId,
+    hasPublishPermission,
+  });
+
   const disabled = useMemo(() => {
+    // RBAC权限检查 - 优先级最高
+    if (hasPublishPermission === false) {
+      return true;
+    }
+
     // Processes in progress or saved cannot be published
     if (isExecuting || saving) {
       return true;
@@ -49,16 +72,21 @@ export const useIsPublishDisabled = () => {
     }
 
     return false;
-  }, [isExecuting, saving, isVcsMode, isCollaboratorMode, vcsData]);
+  }, [hasPublishPermission, isExecuting, saving, isVcsMode, isCollaboratorMode, vcsData]);
 
   const tooltip = useMemo(() => {
+    // RBAC权限提示 - 优先级最高
+    if (hasPublishPermission === false) {
+      return '您没有发布此工作流的权限';
+    }
+
     if (isCollaboratorMode) {
       return I18n.t('workflow_publish_multibranch_publish_disabled_tooltip');
     }
     if (isVcsMode && vcsData?.type === VCSCanvasType.Publish) {
       return I18n.t('workflow_no_change_tooltip');
     }
-  }, [vcsData, isCollaboratorMode, isVcsMode]);
+  }, [hasPublishPermission, vcsData, isCollaboratorMode, isVcsMode]);
 
   return { disabled, tooltip };
 };

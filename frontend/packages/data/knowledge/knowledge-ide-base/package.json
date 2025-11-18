@@ -67,6 +67,7 @@
     "@coze-arch/logger": "workspace:*",
     "@coze-arch/report-events": "workspace:*",
     "@coze-arch/report-tti": "workspace:*",
+    "@coze-common/auth": "workspace:*",
     "@coze-common/chat-area-utils": "workspace:*",
     "@coze-data/e2e": "workspace:*",
     "@coze-data/feature-register": "workspace:*",

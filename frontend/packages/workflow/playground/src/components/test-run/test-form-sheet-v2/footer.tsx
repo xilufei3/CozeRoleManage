@@ -23,8 +23,13 @@ import {
 } from '@coze-arch/coze-design/icons';
 import { Button } from '@coze-arch/coze-design';
 import { type FlowNodeEntity } from '@flowgram-adapter/free-layout-editor';
+import {
+  useRBACPermission,
+  RBACResourceType,
+  RBACAction,
+} from '@coze-common/auth';
 
-import { useExecStateEntity } from '@/hooks';
+import { useExecStateEntity, useGlobalState } from '@/hooks';
 
 import { useTestRunStatus } from '../hooks/use-test-run-status';
 import { useCancelTestRun } from '../hooks/use-cancel-test-run';
@@ -46,6 +51,15 @@ const TestRunFlowButton: React.FC<{
   const {
     config: { executeId },
   } = useExecStateEntity();
+  const { workflowId } = useGlobalState();
+
+  // 检查RBAC execute权限
+  const hasExecutePermission = useRBACPermission(
+    RBACResourceType.Workflow,
+    workflowId || '',
+    RBACAction.Execute,
+  );
+
   /** There are different copies in the save. */
   const text = useMemo(
     () =>
@@ -54,6 +68,10 @@ const TestRunFlowButton: React.FC<{
         : I18n.t('workflow_detail_title_testrun'),
     [saveLoading],
   );
+
+  // 计算是否禁用（加入RBAC权限检查）
+  const isDisabled = disabled || hasExecutePermission === false;
+
   // It is running and has an execution id to cancel.
   return running ? (
     <Button
@@ -66,7 +84,7 @@ const TestRunFlowButton: React.FC<{
     </Button>
   ) : (
     <Button
-      disabled={disabled}
+      disabled={isDisabled}
       loading={loading}
       icon={<IconCozPlayFill />}
       color="green"
@@ -85,6 +103,17 @@ export const TestRunNodeButton: React.FC<{
   const {
     config: { executeId },
   } = useExecStateEntity();
+  const { workflowId } = useGlobalState();
+
+  // 检查RBAC execute权限
+  const hasExecutePermission = useRBACPermission(
+    RBACResourceType.Workflow,
+    workflowId || '',
+    RBACAction.Execute,
+  );
+
+  // 计算是否禁用（加入RBAC权限检查）
+  const isDisabled = disabled || hasExecutePermission === false;
 
   return isMineRunning ? (
     <Button
@@ -99,7 +128,7 @@ export const TestRunNodeButton: React.FC<{
   ) : (
     <Button
       icon={<IconCozPlayFill />}
-      disabled={disabled}
+      disabled={isDisabled}
       loading={loading}
       onClick={onClick}
       color="green"

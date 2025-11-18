@@ -43,8 +43,10 @@ import {
   listRoles,
   getRolePermissions,
   setRolePermissions,
-} from '../../api/rbac';
-import type { Role, Permission } from '../../api/rbac';
+} from '@/api/rbac';
+import type { Role, Permission } from '@/api/rbac';
+import { triggerRBACReload } from '@coze-common/auth';
+
 import { PermissionConfigModal } from './components/PermissionConfigModal';
 
 const { Title, Text } = Typography;
@@ -263,6 +265,11 @@ function usePermissionConfig() {
       });
       Toast.success('权限配置成功');
       setIsPermissionModalVisible(false);
+
+      // 🔑 触发权限重新加载（重要！）
+      // 角色权限修改后，需要刷新全局权限数据
+      triggerRBACReload();
+      console.log('[RoleManagement] 权限配置成功，触发权限刷新');
     } catch (error) {
       Toast.error('权限配置失败');
       console.error(error);
