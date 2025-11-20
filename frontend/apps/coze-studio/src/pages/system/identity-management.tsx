@@ -20,7 +20,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ChangeEvent,
   type ComponentProps,
 } from 'react';
 
@@ -28,6 +27,7 @@ import { useSpaceStore } from '@coze-foundation/space-store';
 import { IconCozPlus } from '@coze-arch/coze-design/icons';
 import {
   Button,
+  Input,
   Modal,
   Select,
   Space,
@@ -207,8 +207,8 @@ interface CreateUserModalProps {
   newEmail: string;
   newPassword: string;
   newRole: RoleType;
-  onEmailChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onPasswordChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
   onRoleChange: (value: RoleType) => void;
 }
 
@@ -231,28 +231,28 @@ const CreateUserModal = ({
     okText="创建"
     cancelText="取消"
   >
-    <div className="space-y-3">
+    <div className="flex flex-col gap-4">
       <div>
-        <Text className="mb-1 block">邮箱</Text>
-        <input
-          className="coze-input coze-input-bordered w-full"
+        <Text className="mb-2 block">邮箱</Text>
+        <Input
           value={newEmail}
           onChange={onEmailChange}
           placeholder="请输入邮箱"
+          style={{ width: '100%' }}
         />
       </div>
       <div>
-        <Text className="mb-1 block">密码</Text>
-        <input
+        <Text className="mb-2 block">密码</Text>
+        <Input
           type="password"
-          className="coze-input coze-input-bordered w-full"
           value={newPassword}
           onChange={onPasswordChange}
           placeholder="请输入密码"
+          style={{ width: '100%' }}
         />
       </div>
       <div>
-        <Text className="mb-1 block">初始身份</Text>
+        <Text className="mb-2 block">初始身份</Text>
         <Select
           value={newRole}
           onChange={value => onRoleChange(value as RoleType)}
@@ -273,8 +273,8 @@ interface CreateModalState {
   newEmail: string;
   newPassword: string;
   newRole: RoleType;
-  onEmailChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onPasswordChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
   onRoleChange: (value: RoleType) => void;
   submit: () => Promise<void>;
 }
@@ -294,13 +294,9 @@ const useCreateModalState = ({
   const open = useCallback(() => setVisible(true), []);
   const close = useCallback(() => setVisible(false), []);
 
-  const onEmailChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => setNewEmail(event.target.value),
-    [],
-  );
+  const onEmailChange = useCallback((value: string) => setNewEmail(value), []);
   const onPasswordChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) =>
-      setNewPassword(event.target.value),
+    (value: string) => setNewPassword(value),
     [],
   );
   const onRoleChange = useCallback((value: RoleType) => setNewRole(value), []);

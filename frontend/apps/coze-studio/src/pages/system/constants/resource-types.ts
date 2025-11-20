@@ -37,7 +37,7 @@ export const RESOURCE_TYPES: ResourceTypeMeta[] = [
     resType: 1,
     name: 'Plugin',
     displayName: 'Plugin (插件)',
-    actions: ['create', 'read', 'update', 'delete', 'execute'],
+    actions: ['create', 'read', 'update', 'delete', 'install'],
   },
   {
     id: 6,
@@ -51,7 +51,7 @@ export const RESOURCE_TYPES: ResourceTypeMeta[] = [
     resType: 4,
     name: 'Knowledge',
     displayName: 'Knowledge (知识库)',
-    actions: ['create', 'read', 'update', 'delete'],
+    actions: ['create', 'read', 'update', 'delete', 'manage'],
   },
   {
     id: 17,

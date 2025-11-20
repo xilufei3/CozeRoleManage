@@ -98,13 +98,10 @@ export async function createSpaceUser(
   spaceId: string,
   params: { email: string; password: string; spaceRole: RoleType },
 ): Promise<void> {
-  const res = await axiosInstance.post(
+  await axiosInstance.post(
     `/api/playground_api/space/${spaceId}/user_create`,
     params,
   );
-  if (res.data?.code !== 0) {
-    throw new Error(res.data?.msg || 'create space user failed');
-  }
 }
 
 export async function updateUserSpaceRole(

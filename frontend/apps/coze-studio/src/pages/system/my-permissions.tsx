@@ -15,18 +15,14 @@
  */
 /* eslint-disable @coze-arch/max-line-per-function */
 
-import { useOutletContext } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Collapse } from '@coze-workflow/test-run';
 import { useSpaceStore } from '@coze-foundation/space-store';
 import { useUserInfo } from '@coze-foundation/account-adapter';
-import { IconCozCheckMarkCircleFillPalette } from '@coze-arch/coze-design/icons';
-import { Card, Typography, Tag, Space } from '@coze-arch/coze-design';
+import { Card, Typography, Tag } from '@coze-arch/coze-design';
 
-import { getUserPermissions, type UserPermissions } from '@/api/rbac';
-
-import { RoleType } from '../../api/space';
+import { getUserPermissions, type UserPermissions } from '../../api/rbac';
 import {
   fetchResourceMap,
   type FetchResourceMapResult,
@@ -35,47 +31,6 @@ import {
 import { RESOURCE_TYPES } from './constants/resource-types';
 
 const { Title, Text } = Typography;
-
-interface SystemOutletContext {
-  isOwner: boolean;
-  isAdmin?: boolean;
-  canViewRoles?: boolean;
-  canViewUsers?: boolean;
-}
-
-const ROLE_LABEL_MAP: Record<RoleType, string> = {
-  [RoleType.Owner]: 'Owner',
-  [RoleType.Admin]: 'Admin',
-  [RoleType.Member]: 'Member',
-};
-
-const ROLE_DESCRIPTION_MAP: Record<RoleType, string> = {
-  [RoleType.Owner]: '拥有空间的全部控制权，可管理成员、角色与资源。',
-  [RoleType.Admin]:
-    '具备空间管理权限，可进行大多数配置事务，受限于拥有者保留权限。',
-  [RoleType.Member]: '普通成员身份，可使用被授权的资源与功能。',
-};
-
-const SYSTEM_CAPABILITIES = [
-  {
-    label: '角色管理',
-    key: 'roles',
-    grantedText: '可查看并维护空间角色。',
-    deniedText: '当前身份无法访问角色管理。',
-  },
-  {
-    label: '用户管理',
-    key: 'users',
-    grantedText: '可查看并管理空间成员。',
-    deniedText: '当前身份无法访问用户管理。',
-  },
-  {
-    label: '身份管理',
-    key: 'identity',
-    grantedText: '可调整空间管理员与成员身份。',
-    deniedText: '仅拥有者可以进行身份管理。',
-  },
-];
 
 type ResourceError = FetchResourceMapResult['errors'][number];
 
@@ -133,8 +88,6 @@ function getThemeByResource(typeId: number) {
 }
 
 export default function MyPermissions() {
-  const { isOwner, isAdmin, canViewRoles, canViewUsers } =
-    useOutletContext<SystemOutletContext>();
   const currentSpace = useSpaceStore(state => state.space);
   const spaceId = currentSpace?.id || '';
   const userInfo = useUserInfo();
@@ -149,16 +102,6 @@ export default function MyPermissions() {
     useState<UserPermissions | null>(null);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
-
-  const roleType = useMemo<RoleType>(() => {
-    if (isOwner) {
-      return RoleType.Owner;
-    }
-    if (isAdmin) {
-      return RoleType.Admin;
-    }
-    return RoleType.Member;
-  }, [isOwner, isAdmin]);
 
   useEffect(() => {
     if (!spaceId) {
@@ -241,25 +184,35 @@ export default function MyPermissions() {
       return matrix[resourceType];
     };
 
-    if (!userPermissions) {
+    if (!userPermissions || !userPermissions.detail_permissions) {
       return matrix;
     }
 
-    userPermissions.detail_permissions?.forEach(perm => {
+    // 🔑 构建权限矩阵：合并所有权限源（角色权限 + 直接权限）
+    userPermissions.detail_permissions.forEach(perm => {
       const entry = ensureEntry(perm.resource_type);
+
+      // 统一处理 resource_id：转换为字符串进行比较
+      const resourceIdStr = String(perm.resource_id || '');
       const isAllResources =
-        perm.resource_id === '0' ||
-        perm.resource_id === 0 ||
-        perm.resource_id === null;
+        resourceIdStr === '0' ||
+        resourceIdStr === '' ||
+        perm.resource_id === null ||
+        perm.resource_id === undefined;
+
       if (isAllResources) {
+        // "所有资源"的权限
         perm.actions.forEach(action => entry.all.add(action));
-        return;
+      } else {
+        // 具体资源的权限
+        const resourceKey = resourceIdStr;
+        if (!entry.resources[resourceKey]) {
+          entry.resources[resourceKey] = new Set();
+        }
+        perm.actions.forEach(action =>
+          entry.resources[resourceKey].add(action),
+        );
       }
-      const resourceKey = String(perm.resource_id);
-      if (!entry.resources[resourceKey]) {
-        entry.resources[resourceKey] = new Set();
-      }
-      perm.actions.forEach(action => entry.resources[resourceKey].add(action));
     });
 
     return matrix;
@@ -271,120 +224,58 @@ export default function MyPermissions() {
       if (!entry) {
         return false;
       }
+
+      // 🔑 权限检查策略：先检查"所有资源"权限，再检查具体资源权限
+      // 1. 检查"所有资源"的权限（resource_id = 0）
       if (entry.all.has(action)) {
         return true;
       }
-      if (String(resourceId) === '0') {
+
+      // 2. 如果查询的是"所有资源"，只检查 all 权限（上面已检查）
+      const resourceIdStr = String(resourceId);
+      if (resourceIdStr === '0' || resourceIdStr === '') {
         return false;
       }
-      const resourceActions = entry.resources[String(resourceId)];
+
+      // 3. 检查具体资源的权限
+      const resourceActions = entry.resources[resourceIdStr];
       return resourceActions?.has(action) ?? false;
     },
     [permissionMatrix],
   );
 
-  const renderPermissionBadge = useCallback((enabled: boolean) => {
-    if (!enabled) {
-      return null;
-    }
-    return (
-      <span className="inline-flex h-6 w-6 items-center justify-center">
-        <IconCozCheckMarkCircleFillPalette className="text-[16px] text-green-500 dark:text-green-300" />
-      </span>
-    );
-  }, []);
-
   return (
     <div className="p-6 flex flex-col gap-6">
-      <Card>
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <Title heading={4}>当前空间身份</Title>
-            <Text type="secondary">
-              当前身份将决定默认可访问的系统能力与资源范围。
-            </Text>
-          </div>
-          <div className="flex flex-col gap-3 rounded-xl border border-blue-100/70 bg-blue-50/60 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
-            <Space size={12} align="center">
-              <Tag color="blue" className="px-3">
-                {ROLE_LABEL_MAP[roleType]}
-              </Tag>
-              <Text strong className="text-sm text-gray-900 dark:text-gray-100">
-                {ROLE_DESCRIPTION_MAP[roleType]}
-              </Text>
-            </Space>
-            <Text type="secondary" className="text-xs">
-              提示：如果需要更高权限，可联系空间拥有者调整身份或申请额外角色。
-            </Text>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="flex flex-col gap-5">
-          <Title heading={4}>系统功能权限</Title>
-          <div className="grid gap-3 md:grid-cols-3">
-            {SYSTEM_CAPABILITIES.map(capability => {
-              const enabled =
-                capability.key === 'roles'
-                  ? !!canViewRoles
-                  : capability.key === 'users'
-                    ? !!canViewUsers
-                    : isOwner;
-              return (
-                <div
-                  key={capability.key}
-                  className="flex flex-col gap-2 rounded-xl border border-gray-100/80 bg-gray-50/60 p-3 text-sm transition-all duration-200 dark:border-gray-700/40 dark:bg-gray-800/40"
-                >
-                  <Space size={10} align="center">
-                    <span
-                      className={`inline-flex h-2.5 w-2.5 rounded-full ${
-                        enabled
-                          ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.55)]'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    />
-                    <Text
-                      strong
-                      className="text-sm text-gray-900 dark:text-gray-100"
-                    >
-                      {capability.label}
-                    </Text>
-                    {enabled ? (
-                      <Tag color="green" className="px-2 text-xs">
-                        可访问
-                      </Tag>
-                    ) : (
-                      <Tag className="px-2 text-xs">受限</Tag>
-                    )}
-                  </Space>
-                  <Text type="secondary" className="text-xs leading-relaxed">
-                    {enabled ? capability.grantedText : capability.deniedText}
-                  </Text>
-                </div>
-              );
-            })}
-          </div>
-          <Text type="secondary" className="text-xs">
-            若需开通受限功能，请向空间拥有者或管理员提交需求。
-          </Text>
-        </div>
-      </Card>
-
       <Card>
         <div className="flex flex-col gap-4">
           <Title heading={4}>空间资源概览</Title>
           <Text type="secondary">
-            展示当前空间下可配置权限的资源清单，后续将基于这些资源汇总权限。
+            展示当前空间下的资源及其权限配置情况，您可以查看每个资源的具体权限。
           </Text>
           {userPermissions?.roles?.length ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Text strong>拥有角色：</Text>
               {userPermissions.roles.map(role => (
                 <Tag key={role.id} color="blue">
                   {role.name}
                 </Tag>
               ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 items-center">
+              <Text type="secondary" className="text-sm">
+                当前未分配任何角色
+              </Text>
+            </div>
+          )}
+          {userPermissions?.detail_permissions?.some(
+            perm => String(perm.role_id) === '0',
+          ) ? (
+            <div className="flex flex-wrap gap-2 items-center">
+              <Text type="secondary" className="text-xs">
+                💡
+                提示：您拥有通过角色分配的权限，这些权限已包含在下方权限矩阵中
+              </Text>
             </div>
           ) : null}
           {permissionError ? (
@@ -411,6 +302,13 @@ export default function MyPermissions() {
                 );
                 const theme = getThemeByResource(resourceType.id);
 
+                // 检查该资源类型是否有 create 权限（检查"所有资源"的 create 权限）
+                const hasCreatePermission = hasPermission(
+                  resourceType.id,
+                  '0',
+                  'create',
+                );
+
                 return (
                   <Collapse
                     key={resourceType.id}
@@ -427,13 +325,23 @@ export default function MyPermissions() {
                         >
                           {resourceType.name.slice(0, 1).toUpperCase()}
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {resourceType.displayName}
-                          </span>
+                        <div className="flex flex-col gap-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {resourceType.displayName}
+                            </span>
+                            <Tag color={hasCreatePermission ? 'green' : 'red'}>
+                              create
+                            </Tag>
+                          </div>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             共 {resources.length} 个资源 · 支持{' '}
-                            {resourceType.actions.length} 个权限动作
+                            {
+                              resourceType.actions.filter(
+                                action => action !== 'create',
+                              ).length
+                            }{' '}
+                            个权限动作
                           </span>
                         </div>
                       </div>
@@ -445,89 +353,77 @@ export default function MyPermissions() {
                     }
                   >
                     <div className="flex flex-col gap-3 border-t border-gray-100/80 pt-3 dark:border-gray-700/60">
-                      <div className="overflow-x-auto rounded-lg border border-gray-100/80 bg-white text-sm text-gray-700 dark:border-gray-700/50 dark:bg-gray-900/60 dark:text-gray-200">
-                        <table className="min-w-full border-spacing-0 text-left">
-                          <thead className="bg-gray-50 text-xs font-medium text-gray-500 dark:bg-gray-800/60 dark:text-gray-300">
-                            <tr>
-                              <th className="whitespace-nowrap px-4 py-2 text-gray-600 dark:text-gray-200">
-                                资源名称
-                              </th>
-                              {resourceType.actions.map(action => (
-                                <th
-                                  key={action}
-                                  className="whitespace-nowrap px-4 py-2 text-center"
-                                >
-                                  {action}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-t border-gray-100/70 bg-gray-50/60 dark:border-gray-600/60 dark:bg-gray-800/50">
-                              <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                所有资源
-                              </td>
-                              {resourceType.actions.map(action => (
-                                <td
-                                  key={`all-${action}`}
-                                  className="px-4 py-2 text-sm text-center text-gray-600 dark:text-gray-200"
-                                >
-                                  {renderPermissionBadge(
-                                    hasPermission(resourceType.id, '0', action),
-                                  )}
-                                </td>
-                              ))}
-                            </tr>
-                            {resources.map(resource => {
-                              // 🔑 判断是否是当前用户创建的
-                              const isCreatedByUser =
-                                userId &&
-                                resource.creator_id &&
-                                String(resource.creator_id) === String(userId);
-                              return (
-                                <tr
-                                  key={resource.id}
-                                  className="border-t border-gray-100/70 dark:border-gray-700/50"
-                                >
-                                  <td className="max-w-[280px] px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="truncate">
-                                        {resource.name}
-                                      </span>
-                                      {isCreatedByUser ? (
-                                        <Tag
-                                          size="small"
-                                          className="!bg-transparent !border-gray-300 !text-gray-600 flex-shrink-0"
-                                          style={{
-                                            backgroundColor: 'transparent',
-                                            border: '1px solid #d9d9d9',
-                                            color: '#666',
-                                          }}
-                                        >
-                                          我创建的
-                                        </Tag>
-                                      ) : null}
-                                    </div>
-                                  </td>
-                                  {resourceType.actions.map(action => (
-                                    <td
-                                      key={`${resource.id}-${action}`}
-                                      className="px-4 py-2 text-sm text-center text-gray-600 dark:text-gray-200"
-                                    >
-                                      {renderPermissionBadge(
-                                        hasPermission(
-                                          resourceType.id,
-                                          resource.id,
-                                          action,
-                                        ),
-                                      )}
-                                    </td>
-                                  ))}
-                                </tr>
+                      <div className="flex flex-col gap-2">
+                        {resources.map(resource => {
+                          // 🔑 判断是否是当前用户创建的
+                          const isCreatedByUser =
+                            userId &&
+                            resource.creator_id &&
+                            String(resource.creator_id) === String(userId);
+
+                          // 获取该资源拥有的所有权限（排除 create 权限，因为 create 是针对资源类型的）
+                          // 🔑 如果资源是用户创建的，默认拥有该资源类型的所有权限动作（除了 create）
+                          const resourcePermissions = isCreatedByUser
+                            ? resourceType.actions.filter(
+                                action => action !== 'create',
+                              )
+                            : resourceType.actions.filter(
+                                action =>
+                                  action !== 'create' &&
+                                  hasPermission(
+                                    resourceType.id,
+                                    resource.id,
+                                    action,
+                                  ),
                               );
-                            })}
-                          </tbody>
-                        </table>
+
+                          return (
+                            <div
+                              key={resource.id}
+                              className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100/80 bg-white/80 hover:bg-gray-50/60 dark:border-gray-700/50 dark:bg-gray-900/60 dark:hover:bg-gray-800/60 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                  {resource.name}
+                                </span>
+                                {isCreatedByUser ? (
+                                  <Tag
+                                    size="small"
+                                    className="!bg-transparent !border-gray-300 !text-gray-600 flex-shrink-0"
+                                    style={{
+                                      backgroundColor: 'transparent',
+                                      border: '1px solid #d9d9d9',
+                                      color: '#666',
+                                    }}
+                                  >
+                                    我创建的
+                                  </Tag>
+                                ) : null}
+                              </div>
+                              {resourcePermissions.length > 0 ? (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {resourcePermissions.map(action => (
+                                    <Tag
+                                      key={`${resource.id}-${action}`}
+                                      color="green"
+                                    >
+                                      {action}
+                                    </Tag>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                  无权限
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {resources.length === 0 && (
+                          <div className="px-3 py-4 text-center text-sm text-gray-400 dark:text-gray-500">
+                            暂无资源
+                          </div>
+                        )}
                       </div>
                       {hasError ? (
                         <Text
